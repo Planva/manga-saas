@@ -1,4 +1,4 @@
-name: Deploy to Cloudflare Workers (npm fallback)
+name: Deploy to Cloudflare Workers
 
 on:
   push:
@@ -19,13 +19,21 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: 'pnpm'                  # 允许基于 pnpm-lock.yaml 的缓存
+          cache-dependency-path: 'pnpm-lock.yaml'
 
-      - name: Install deps (npm)
-        run: npm install
+      - name: Show toolchain
+        run: |
+          node -v
+          npm -v
+          echo "npx will download pnpm on demand"
 
-      - name: Build (OpenNext) with npm
-        run: npm run build
+      # 🔑 关键：用 npx 临时执行 pnpm（无需预装 pnpm）
+      - name: Install deps (pnpm via npx)
+        run: npx -y pnpm@9 install --frozen-lockfile
+
+      - name: Build (OpenNext) with pnpm via npx
+        run: npx -y pnpm@9 build
         env:
           NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
 
