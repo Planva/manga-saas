@@ -1,4 +1,4 @@
-name: Deploy to Cloudflare Workers
+name: Deploy to Cloudflare Workers (npm fallback)
 
 on:
   push:
@@ -15,27 +15,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 先装 Node，再装 pnpm（顺序很重要）
       - name: Setup Node (LTS)
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: 'npm'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-          run_install: false
+      - name: Install deps (npm)
+        run: npm install
 
-      - name: Verify pnpm
-        run: pnpm -v
-
-      - name: Install deps
-        run: pnpm install --frozen-lockfile
-
-      - name: Build (OpenNext)
-        run: pnpm build
+      - name: Build (OpenNext) with npm
+        run: npm run build
         env:
           NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
 
