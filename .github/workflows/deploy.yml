@@ -15,35 +15,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 先装 Node（启用 corepack 缓存 pnpm）
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
 
+      # 安装 pnpm（两选一：推荐用 action；若喜欢 corepack 也可用下面注释的方式）
       - name: Setup PNPM
         uses: pnpm/action-setup@v4
         with:
           version: 9
+          run_install: false
+      # - name: Enable corepack pnpm (alternative)
+      #   run: |
+      #     corepack enable
+      #     corepack prepare pnpm@9 --activate
+      #   shell: bash
 
-      - name: Install
+      - name: Install deps
         run: pnpm install --frozen-lockfile
 
-      # 构建 OpenNext 产物（会生成 .open-next/*）
-      - name: Build
+      - name: Build (OpenNext)
         run: pnpm build
         env:
           NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
 
-      # 发布 Worker
       - name: Publish Worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          # wrangler 会读取 wrangler.jsonc，默认部署到 `name` 对应的 worker
           command: deploy
 
-      # 远程执行 D1 迁移（作用到你创建的 D1：manga_saas_d1）
       - name: Apply D1 migrations (remote)
         uses: cloudflare/wrangler-action@v3
         with:
