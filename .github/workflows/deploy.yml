@@ -19,18 +19,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
 
-      # 直接全局安装 pnpm，确保可用
-      - name: Install pnpm
+      # ⛑ 兜底安装 pnpm，并把目录写入 PATH
+      - name: Install pnpm (script)
+        shell: bash
         run: |
-          npm i -g pnpm@9
+          curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=9.0.0 sh -
+          echo "$HOME/.local/share/pnpm" >> "$GITHUB_PATH"
+          echo "PNPM PATH added: $HOME/.local/share/pnpm"
           pnpm -v
 
       - name: Install deps
+        shell: bash
         run: pnpm install --frozen-lockfile
 
       - name: Build (OpenNext)
+        shell: bash
         run: pnpm build
         env:
           NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
