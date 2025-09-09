@@ -21,11 +21,10 @@ jobs:
           node-version: 20
           cache: 'pnpm'
 
-      # 用 corepack 激活 pnpm（最稳妥）
-      - name: Enable pnpm via corepack
+      # 直接全局安装 pnpm，确保可用
+      - name: Install pnpm
         run: |
-          corepack enable
-          corepack prepare pnpm@9 --activate
+          npm i -g pnpm@9
           pnpm -v
 
       - name: Install deps
