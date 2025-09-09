@@ -15,26 +15,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # 先装 Node，再装 pnpm（顺序很重要）
       - name: Setup Node (LTS)
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'pnpm'
 
-      # ⛑ 兜底安装 pnpm，并把目录写入 PATH
-      - name: Install pnpm (script)
-        shell: bash
-        run: |
-          curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=9.0.0 sh -
-          echo "$HOME/.local/share/pnpm" >> "$GITHUB_PATH"
-          echo "PNPM PATH added: $HOME/.local/share/pnpm"
-          pnpm -v
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Verify pnpm
+        run: pnpm -v
 
       - name: Install deps
-        shell: bash
         run: pnpm install --frozen-lockfile
 
       - name: Build (OpenNext)
-        shell: bash
         run: pnpm build
         env:
           NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
