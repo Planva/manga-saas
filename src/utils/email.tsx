@@ -6,7 +6,7 @@ import { ResetPasswordEmail } from "@/react-email/reset-password";
 import { VerifyEmail } from "@/react-email/verify-email";
 import { TeamInviteEmail } from "@/react-email/team-invite";
 import isProd from "./is-prod";
-
+import { getSiteUrl } from "@/utils/site-url";
 interface BrevoEmailOptions {
   to: { email: string; name?: string }[];
   subject: string;
@@ -191,7 +191,7 @@ export async function sendVerificationEmail({
   verificationToken: string;
   username: string;
 }) {
-  const verificationUrl = `${SITE_URL}/verify-email?token=${verificationToken}`;
+  const verificationUrl = `${getSiteUrl()}/verify-email?token=${verificationToken}`;
 
   if (!isProd) {
     console.warn('\n\n\nVerification url: ', verificationUrl)
