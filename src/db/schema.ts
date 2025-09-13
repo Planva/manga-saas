@@ -1,9 +1,7 @@
-import { sqliteTable, integer, text, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, integer, text, index,primaryKey } from "drizzle-orm/sqlite-core";
 import { relations, sql } from "drizzle-orm";
 import { type InferSelectModel } from "drizzle-orm";
-
-import { createId } from '@paralleldrive/cuid2'
-
+import { createId } from '@paralleldrive/cuid2';
 export const ROLES_ENUM = {
   ADMIN: 'admin',
   USER: 'user',
@@ -57,6 +55,7 @@ export const userTable = sqliteTable("user", {
   lastCreditRefreshAt: integer({
     mode: "timestamp",
   }),
+  unlimitedUsageUntil: integer("unlimitedUsageUntil").notNull().default(0),
 }, (table) => ([
   index('email_idx').on(table.email),
   index('google_account_id_idx').on(table.googleAccountId),
@@ -90,6 +89,7 @@ export const passKeyCredentialTable = sqliteTable("passkey_credential", {
   ipAddress: text({
     length: 100,
   }),
+  
 }, (table) => ([
   index('user_id_idx').on(table.userId),
   index('credential_id_idx').on(table.credentialId),
@@ -361,3 +361,35 @@ export type Team = InferSelectModel<typeof teamTable>;
 export type TeamMembership = InferSelectModel<typeof teamMembershipTable>;
 export type TeamRole = InferSelectModel<typeof teamRoleTable>;
 export type TeamInvitation = InferSelectModel<typeof teamInvitationTable>;
+// --- Guest quota for anonymous users (per UTC day + device did) ---
+
+
+export const guestQuotaTable = sqliteTable(
+  "guest_quota",
+  {
+    day: text("day").notNull(),             // YYYY-MM-DD (UTC)
+    did: text("did").notNull(),             // device id = sha256(UA+Lang+secret).slice(0,32)
+    ip: text("ip"),                          // last seen ip
+    remaining: integer("remaining").notNull().default(0),
+    used: integer("used").notNull().default(0),
+    ipChanges: integer("ipChanges").notNull().default(0),
+    updatedAt: integer("updatedAt").notNull(), // unix seconds
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.day, t.did] }),
+    dayIpIdx: index("idx_guest_quota_day_ip").on(t.day, t.ip),
+  })
+);
+
+// 映射：Stripe Customer -> 本站 userId
+export const stripeCustomerMapTable = sqliteTable("stripe_customer_map", {
+  customerId: text("customerId").primaryKey(),          // cus_***
+  userId:     text("userId").notNull(),                 // 引用 user.id（此处不强制外键以兼容 D1 版本差异）
+  createdAt:  integer("createdAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+  updatedAt:  integer("updatedAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+});
+
+// （可选）relations 如需
+export const stripeCustomerMapRelations = relations(stripeCustomerMapTable, ({ one }) => ({
+  // user: one(userTable, { fields: [stripeCustomerMapTable.userId], references: [userTable.id] })
+}));

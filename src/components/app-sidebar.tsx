@@ -1,168 +1,115 @@
-"use client"
+"use client";
 
-import { type ComponentType, useEffect, useState } from "react"
-import type { Route } from 'next'
-
+import { useEffect, useState, type ComponentType } from "react";
+import type { Route } from "next";
 import {
   Building2,
-  Frame,
-  Map,
-  PieChart,
-  Settings2,
-  ShoppingCart,
   SquareTerminal,
-  CreditCard,
   Users,
-} from "lucide-react"
+  ShoppingCart,
+  CreditCard,
+  Settings2,
+} from "lucide-react";
 
-import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
-import { NavUser } from "@/components/nav-user"
-import { TeamSwitcher } from "@/components/team-switcher"
+import { NavMain } from "@/components/nav-main";
+import { NavUser } from "@/components/nav-user";
+import { TeamSwitcher } from "@/components/team-switcher";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
   SidebarRail,
-} from "@/components/ui/sidebar"
-import { useSessionStore } from "@/state/session"
+} from "@/components/ui/sidebar";
+import { useSessionStore } from "@/state/session";
+import Link from "next/link";
+import { Home /* 或 Globe, ArrowLeft */ } from "lucide-react";
+type FeatureFlags = {
+  HOME: boolean;
+  TEAMS: boolean;
+  MARKETPLACE: boolean;
+  BILLING: boolean;
+  SETTINGS: boolean;
+};
 
 export type NavItem = {
-  title: string
-  url: Route
-  icon?: ComponentType
-}
-
-export type NavMainItem = NavItem & {
-  isActive?: boolean
-  items?: NavItem[]
-}
+  title: string;
+  url: Route;
+  icon?: ComponentType<any>;
+};
+export type NavMainItem = NavItem & { isActive?: boolean; items?: NavItem[] };
 
 type Data = {
-  user: {
-    name: string
-    email: string
-  }
-  teams: {
-    name: string
-    logo: ComponentType
-    plan: string
-  }[]
-  navMain: NavMainItem[]
-  projects: NavItem[]
-}
+  teams: { name: string; logo: ComponentType<any>; plan: string }[];
+};
 
-// TODO Add a theme switcher
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+type Props = React.ComponentProps<typeof Sidebar> & {
+  featureFlags: FeatureFlags; // ← 新增
+};
+
+export function AppSidebar({ featureFlags, ...sidebarProps }: Props) {
   const { session } = useSessionStore();
-  const [formattedTeams, setFormattedTeams] = useState<Data['teams']>([]);
+  const [formattedTeams, setFormattedTeams] = useState<Data["teams"]>([]);
 
-  // Map session teams to the format expected by TeamSwitcher
   useEffect(() => {
-    if (session?.teams && session.teams.length > 0) {
-      // Map teams from session to the format expected by TeamSwitcher
-      const teamData = session.teams.map(team => {
-        return {
-          name: team.name,
-          // TODO Get the actual logo when we implement team avatars
+    if (session?.teams?.length) {
+      setFormattedTeams(
+        session.teams.map((t) => ({
+          name: t.name,
           logo: Building2,
-          // Default plan - you might want to add plan data to your team structure
-          plan: team.role.name || "Member"
-        };
-      });
-
-      setFormattedTeams(teamData);
+          plan: t.role.name || "Member",
+        }))
+      );
     }
   }, [session]);
 
-  const data: Data = {
-    user: {
-      name: session?.user?.firstName || "User",
-      email: session?.user?.email || "user@example.com",
-    },
-    teams: formattedTeams,
-    navMain: [
-      {
-        title: "Dashboard",
-        url: "/dashboard",
-        icon: SquareTerminal,
-        isActive: true,
-      },
-      {
-        title: "Teams",
-        url: "/dashboard/teams" as Route,
-        icon: Users,
-      },
-      {
-        title: "Marketplace",
-        url: "/dashboard/marketplace",
-        icon: ShoppingCart,
-      },
-      {
-        title: "Billing",
-        url: "/dashboard/billing",
-        icon: CreditCard,
-      },
-      {
-        title: "Settings",
-        url: "/settings",
-        icon: Settings2,
-        items: [
-          {
-            title: "Profile",
-            url: "/settings",
-          },
-          {
-            title: "Security",
-            url: "/settings/security",
-          },
-          {
-            title: "Sessions",
-            url: "/settings/sessions",
-          },
-          {
-            title: "Change Password",
-            url: "/forgot-password",
-          },
-        ],
-      },
-    ],
-    projects: [
-      {
-        title: "Design Engineering",
-        url: "#",
-        icon: Frame,
-      },
-      {
-        title: "Sales & Marketing",
-        url: "#",
-        icon: PieChart,
-      },
-      {
-        title: "Travel",
-        url: "#",
-        icon: Map,
-      },
-    ],
-  }
+  const navMain: NavMainItem[] = [
+    ...(featureFlags.HOME
+      ? [{ title: "Dashboard", url: "/dashboard" as Route, icon: SquareTerminal }]
+      : []),
+    ...(featureFlags.TEAMS
+      ? [{ title: "Teams", url: "/dashboard/teams" as Route, icon: Users }]
+      : []),
+    ...(featureFlags.MARKETPLACE
+      ? [{ title: "Marketplace", url: "/dashboard/marketplace" as Route, icon: ShoppingCart }]
+      : []),
+    ...(featureFlags.BILLING
+      ? [{ title: "Billing", url: "/dashboard/billing" as Route, icon: CreditCard }]
+      : []),
+    ...(featureFlags.SETTINGS
+      ? [{ title: "Settings", url: "/dashboard/settings" as Route, icon: Settings2 }]
+      : []),
+  ];
 
   return (
-    <Sidebar collapsible="icon" {...props}>
-      {data?.teams?.length > 0 && (
-        <SidebarHeader>
-          <TeamSwitcher teams={data.teams} />
-        </SidebarHeader>
-      )}
+    <Sidebar collapsible="icon" {...sidebarProps}>
+      {/* ① 总是渲染 Header；把“返回主页”放在最上方 */}
+      <SidebarHeader>
+        <div className="px-2 pt-2">
+          <Link
+            href="/"
+            className="flex items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+          >
+            <Home className="h-4 w-4" />
+            <span className="truncate">Back to site</span>
+          </Link>
+        </div>
+
+        {/* ② 保留原来的 TeamSwitcher（有团队时显示） */}
+        {formattedTeams.length > 0 && (
+          <div className="px-2 pb-2">
+            <TeamSwitcher teams={formattedTeams} />
+          </div>
+        )}
+      </SidebarHeader>
 
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
+        <NavMain items={navMain} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
-  )
+  );
 }

@@ -17,13 +17,14 @@ import {
   updateKVSession,
   CURRENT_SESSION_VERSION
 } from "./kv-session";
-import { cache } from "react"
+//import { cache } from "react"
+
+import { unstable_noStore as noStore } from "next/cache"
 import type { SessionValidationResult } from "@/types";
 import { SESSION_COOKIE_NAME } from "@/constants";
 import { ZSAError } from "zsa";
 import { addFreeMonthlyCreditsIfNeeded } from "./credits";
 import { getInitials } from "./name-initials";
-
 const getSessionLength = () => {
   return ms("30d");
 }
@@ -193,6 +194,7 @@ export async function createAndStoreSession(
 }
 
 async function validateSessionToken(token: string, userId: string): Promise<SessionValidationResult | null> {
+  noStore();
   const sessionId = await generateSessionId(token);
 
   const session = await getKVSession(sessionId, userId);
@@ -266,66 +268,53 @@ export async function deleteSessionTokenCookie(): Promise<void> {
 /**
  * This function can only be called in a Server Components, Server Action or Route Handler
  */
-export const getSessionFromCookie = cache(async (): Promise<SessionValidationResult | null> => {
+export async function getSessionFromCookie(): Promise<SessionValidationResult | null> {
+  noStore(); // 每次都走新请求，避免拿到预取/缓存的旧会话
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-
-  if (!sessionCookie) {
-    return null;
-  }
+  if (!sessionCookie) return null;
 
   const decoded = decodeSessionCookie(sessionCookie);
-
-  if (!decoded || !decoded.token || !decoded.userId) {
-    return null;
-  }
+  if (!decoded?.token || !decoded?.userId) return null;
 
   return validateSessionToken(decoded.token, decoded.userId);
-})
+}
 
-export const requireVerifiedEmail = cache(async ({
+
+
+export async function requireVerifiedEmail({
   doNotThrowError = false,
 }: {
   doNotThrowError?: boolean;
-} = {}) => {
+} = {}) {
+  noStore(); // ✅ 防止被缓存
   const session = await getSessionFromCookie();
+  if (!session) throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
 
-  if (!session) {
-    throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
-  }
-
-  if (!session?.user?.emailVerified) {
-    if (doNotThrowError) {
-      return null;
-    }
-
+  if (!session.user?.emailVerified) {
+    if (doNotThrowError) return null;
     throw new ZSAError("FORBIDDEN", "Please verify your email first");
   }
-
   return session;
-});
+}
 
-export const requireAdmin = cache(async ({
+
+export async function requireAdmin({
   doNotThrowError = false,
 }: {
   doNotThrowError?: boolean;
-} = {}) => {
+} = {}) {
+  noStore(); // ✅ 防止被缓存
   const session = await getSessionFromCookie();
-
-  if (!session) {
-    throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
-  }
+  if (!session) throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
 
   if (session.user.role !== ROLES_ENUM.ADMIN) {
-    if (doNotThrowError) {
-      return null;
-    }
-
+    if (doNotThrowError) return null;
     throw new ZSAError("FORBIDDEN", "Not authorized");
   }
-
   return session;
-});
+}
+
 
 interface DisposableEmailResponse {
   disposable: string;

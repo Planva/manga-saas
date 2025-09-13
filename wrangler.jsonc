@@ -5,7 +5,7 @@
  {
     "$schema": "node_modules/wrangler/config-schema.json",
     "account_id": "56db5c1a91ec01f4b3c7c612d8ebeeef",
-    "name": "manga-saas",
+    "name": "manga-saas", //项目名称
     "main": ".open-next/worker.js",
     "compatibility_date": "2025-03-01",
     "compatibility_flags": [
@@ -39,9 +39,9 @@
      * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
      */
     "vars": {
-        "EMAIL_FROM": "no-reply@notifications.agenticdev.agency",
-        "EMAIL_FROM_NAME": "AgenticDev.agency",
-        "EMAIL_REPLY_TO": "support@agenticdev.agency"
+        "EMAIL_FROM": "support@aimangatranslate.com",
+        "EMAIL_FROM_NAME": "support",
+        "EMAIL_REPLY_TO": "support@aimangatranslate.com"
     },
     /**
      * Note: Use secrets to store sensitive data.
@@ -78,20 +78,20 @@
     "d1_databases": [
       {
         "binding": "DB",
-        "database_name": "manga_saas_d1",
-        "database_id": "dd093903-fe1c-44cc-a2f7-858459431de4",
+        "database_name": "manga_saas_d1", //D1数据库名
+        "database_id": "dd093903-fe1c-44cc-a2f7-858459431de4", //D1数据ID
         "migrations_dir": "src/db/migrations"
       },
       {
         "binding": "NEXT_TAG_CACHE_D1",
-        "database_name": "manga_saas_d1",
-        "database_id": "dd093903-fe1c-44cc-a2f7-858459431de4"
+        "database_name": "manga_saas_d1",  //D1数据库名
+        "database_id": "dd093903-fe1c-44cc-a2f7-858459431de4" //D1数据ID
       }
     ],
     "kv_namespaces": [
         {
             "binding": "NEXT_INC_CACHE_KV",
-            "id": "f97e17adcd3a42f88736020c31be1491"
+            "id": "f97e17adcd3a42f88736020c31be1491" // KV ID
         }
     ]
   }

@@ -1,316 +1,348 @@
+// src/utils/credits.ts
 import "server-only";
-import { eq, sql, desc, and, lt, isNull, gt, or, asc } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDB } from "@/db";
-import { userTable, creditTransactionTable, CREDIT_TRANSACTION_TYPE, purchasedItemsTable } from "@/db/schema";
-import { updateAllSessionsOfUser, KVSession } from "./kv-session";
-import { CREDIT_PACKAGES, FREE_MONTHLY_CREDITS } from "@/constants";
+import { userTable, creditTransactionTable, purchasedItemsTable } from "@/db/schema";
+import { updateAllSessionsOfUser, type KVSession } from "./kv-session";
+import { desc, sql } from "drizzle-orm";
+import { getStripe } from "@/lib/stripe";
 
-export type CreditPackage = typeof CREDIT_PACKAGES[number];
+/* ------------------------- 小工具 ------------------------- */
 
-export function getCreditPackage(packageId: string): CreditPackage | undefined {
-  return CREDIT_PACKAGES.find((pkg) => pkg.id === packageId);
+function nowSec() {
+  return Math.floor(Date.now() / 1000);
 }
-
-function shouldRefreshCredits(session: KVSession, currentTime: Date): boolean {
-  // Check if it's been at least a month since last refresh
-  if (!session.user.lastCreditRefreshAt) {
-    return true;
-  }
-
-  // Calculate the date exactly one month after the last refresh
-  const oneMonthAfterLastRefresh = new Date(session.user.lastCreditRefreshAt);
-  oneMonthAfterLastRefresh.setMonth(oneMonthAfterLastRefresh.getMonth() + 1);
-
-  // Only refresh if we've passed the one month mark
-  return currentTime >= oneMonthAfterLastRefresh;
+function toSec(v: unknown): number {
+  if (!v) return 0;
+  if (v instanceof Date) return Math.floor(v.getTime() / 1000);
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
 }
+function subsMode() {
+  const m = (process.env.FEATURE_SUBS_UNLIMITED_MODE ?? "off").toLowerCase();
+  return (["off", "monthly", "yearly", "all"] as const).includes(m as any)
+    ? (m as "off" | "monthly" | "yearly" | "all")
+    : "off";
+}
+const SUB_MONTHLY = process.env.NEXT_PUBLIC_STRIPE_SUB_MONTHLY || "";
+const SUB_YEARLY  = process.env.NEXT_PUBLIC_STRIPE_SUB_YEARLY  || "";
 
-async function processExpiredCredits(userId: string, currentTime: Date) {
+/* ------------------------- 订阅判定（仅用邮箱，自愈写回 until） ------------------------- */
+
+/**
+ * 仅用邮箱到 Stripe 查找订阅；命中后把 current_period_end 写回 unlimitedUsageUntil。
+ * 不再依赖/写入 stripeCustomerId（你的 schema 中没有该列）。
+ */
+async function ensureUnlimitedByStripe(userId: string): Promise<boolean> {
+  const mode = subsMode();
+  if (mode === "off") return false;
+
   const db = getDB();
-  // Find all expired transactions that haven't been processed and have remaining credits
-  // Order by type to process MONTHLY_REFRESH first, then by creation date
-  const expiredTransactions = await db.query.creditTransactionTable.findMany({
-    where: and(
-      eq(creditTransactionTable.userId, userId),
-      lt(creditTransactionTable.expirationDate, currentTime),
-      isNull(creditTransactionTable.expirationDateProcessedAt),
-      gt(creditTransactionTable.remainingAmount, 0),
-    ),
-    orderBy: [
-      // Process MONTHLY_REFRESH transactions first
-      desc(sql`CASE WHEN ${creditTransactionTable.type} = ${CREDIT_TRANSACTION_TYPE.MONTHLY_REFRESH} THEN 1 ELSE 0 END`),
-      // Then process by creation date (oldest first)
-      asc(creditTransactionTable.createdAt),
-    ],
-  });
+  const u = await db
+    .select({
+      id: userTable.id,
+      email: userTable.email,
+    })
+    .from(userTable)
+    .where(eq(userTable.id, userId))
+    .get();
 
-  // Process each expired transaction
-  for (const transaction of expiredTransactions) {
-    try {
-      // First, mark the transaction as processed to prevent double processing
-      await db
-        .update(creditTransactionTable)
-        .set({
-          expirationDateProcessedAt: currentTime,
-          remainingAmount: 0, // All remaining credits are expired
-        })
-        .where(eq(creditTransactionTable.id, transaction.id));
+  const email = (u as any)?.email as string | undefined;
+  if (!email) return false;
 
-      // Then deduct the expired credits from user's balance
+  const stripe = getStripe();
+
+  try {
+    // 1) 用邮箱找 customer
+    const list = await stripe.customers.list({ email, limit: 1 });
+    const customer = list.data?.[0];
+    if (!customer?.id) {
+      // 没找到客户 → 清零 until（防止残留）
       await db
         .update(userTable)
-        .set({
-          currentCredits: sql`${userTable.currentCredits} - ${transaction.remainingAmount}`,
-        })
+        .set({ unlimitedUsageUntil: 0, updatedAt: new Date() })
         .where(eq(userTable.id, userId));
-    } catch (error) {
-      console.error(`Failed to process expired credits for transaction ${transaction.id}:`, error);
-      continue;
+      return false;
     }
+
+    // 2) 取 active 订阅并比对 priceId
+    const subs = await stripe.subscriptions.list({
+      customer: customer.id,
+      status: "active",
+      limit: 20,
+      expand: ["data.items.data.price"],
+    });
+
+    const allowMonthly = mode === "all" || mode === "monthly";
+    const allowYearly  = mode === "all" || mode === "yearly";
+
+    const match = subs.data.find((s) =>
+      s.items.data.some((it) => {
+        const pid = it.price?.id || "";
+        if (!pid) return false;
+        if (allowMonthly && pid === SUB_MONTHLY) return true;
+        if (allowYearly  && pid === SUB_YEARLY)  return true;
+        return false;
+      })
+    );
+
+    const until = match?.current_period_end ?? 0;
+
+    // 3) 写回 until（命中则周期末，否则清零）
+    await db
+      .update(userTable)
+      .set({
+        unlimitedUsageUntil: until ? until : 0,
+        updatedAt: new Date(),
+      })
+      .where(eq(userTable.id, userId));
+
+    return until > nowSec();
+  } catch {
+    // Stripe 临时失败不影响请求
+    return false;
   }
 }
+
+/** 统一导出：是否拥有无限使用权 */
+export async function hasUnlimitedAccess(userId: string): Promise<boolean> {
+  const db = getDB();
+  const r = await db
+    .select({ u: userTable.unlimitedUsageUntil })
+    .from(userTable)
+    .where(eq(userTable.id, userId))
+    .get();
+
+  const active = toSec(r?.u) >= nowSec();
+  if (active) return true;
+  // 不活跃时再去 Stripe 自愈一次（只查一次，之后都走本地字段）
+  return ensureUnlimitedByStripe(userId);
+}
+
+/* ------------------------- 交易记录 ------------------------- */
+
+async function logCreditTransaction(
+  db: ReturnType<typeof getDB>,
+  args: {
+    userId: string;
+    amount: number;                    // 正数=增加，负数=扣除
+    remainingAmount: number;           // 变更后的余额
+    type?: string;                     // 默认 'USAGE'
+    description?: string | null;       // 备注
+    paymentIntentId?: string | null;   // 可选
+    expirationDate?: Date | null;      // 可选
+  }
+) {
+  await db.insert(creditTransactionTable).values({
+    userId: args.userId,
+    amount: args.amount,
+    remainingAmount: args.remainingAmount,
+    type: args.type ?? "USAGE",
+    description: args.description ?? null,
+    paymentIntentId: args.paymentIntentId ?? null,
+    expirationDate: args.expirationDate ?? null,
+  });
+}
+
+/* ------------------------- 加/扣积分（统一入口） ------------------------- */
 
 export async function updateUserCredits(userId: string, creditsToAdd: number) {
   const db = getDB();
+
+  // 扣分且拥有无限订阅 → 跳过扣费
+  if (creditsToAdd < 0 && (await hasUnlimitedAccess(userId))) {
+    try { await updateAllSessionsOfUser(userId); } catch {}
+    return { ok: true as const, skipped: "unlimited" as const };
+  }
+
+  // 扣分安全校验，避免负数
+  if (creditsToAdd < 0) {
+    const r = await db
+      .select({ c: userTable.currentCredits })
+      .from(userTable)
+      .where(eq(userTable.id, userId))
+      .get();
+    const cur = (r?.c ?? 0) as number;
+    if (cur + creditsToAdd < 0) {
+      return { ok: false as const, error: "INSUFFICIENT_CREDITS" as const };
+    }
+  }
+
+  // 读 → 算 → 写
+  const r2 = await db
+    .select({ c: userTable.currentCredits })
+    .from(userTable)
+    .where(eq(userTable.id, userId))
+    .get();
+
+  const current = (r2?.c ?? 0) as number;
+  const next = current + creditsToAdd;
+
   await db
     .update(userTable)
-    .set({
-      currentCredits: sql`${userTable.currentCredits} + ${creditsToAdd}`,
-    })
+    .set({ currentCredits: next, updatedAt: new Date() })
     .where(eq(userTable.id, userId));
 
-  // Update all KV sessions to reflect the new credit balance
-  await updateAllSessionsOfUser(userId);
+  if (creditsToAdd !== 0) {
+    await logCreditTransaction(db, {
+      userId,
+      amount: creditsToAdd,
+      remainingAmount: next,
+      type: creditsToAdd < 0 ? "USAGE" : "ADJUSTMENT",
+      description: creditsToAdd < 0 ? "Test usage" : "Credit adjustment",
+    });
+  }
+
+  try { await updateAllSessionsOfUser(userId); } catch {}
+
+  return { ok: true as const };
 }
 
-async function updateLastRefreshDate(userId: string, date: Date) {
-  const db = getDB();
-  await db
-    .update(userTable)
-    .set({
-      lastCreditRefreshAt: date,
-    })
-    .where(eq(userTable.id, userId));
-}
-
-export async function logTransaction({
-  userId,
-  amount,
-  description,
-  type,
-  expirationDate,
-  paymentIntentId
-}: {
-  userId: string;
-  amount: number;
-  description: string;
-  type: keyof typeof CREDIT_TRANSACTION_TYPE;
-  expirationDate?: Date;
-  paymentIntentId?: string;
-}) {
-  const db = getDB();
-  await db.insert(creditTransactionTable).values({
-    userId,
-    amount,
-    remainingAmount: amount, // Initialize remaining amount to be the same as amount
-    type,
-    description,
-    expirationDate,
-    paymentIntentId
-  });
-}
+/* ------------------------- 每日赠送（保持函数名不变） ------------------------- */
 
 export async function addFreeMonthlyCreditsIfNeeded(session: KVSession): Promise<number> {
-  const currentTime = new Date();
-
-  // Check if it's been at least a month since last refresh
-  if (shouldRefreshCredits(session, currentTime)) {
-    // Double check the last refresh date from the database to prevent race conditions
-    const db = getDB();
-    const user = await db.query.userTable.findFirst({
-      where: eq(userTable.id, session.userId),
-      columns: {
-        lastCreditRefreshAt: true,
-        currentCredits: true,
-      },
-    });
-
-    // This should prevent race conditions between multiple sessions
-    if (!shouldRefreshCredits({ ...session, user: { ...session.user, lastCreditRefreshAt: user?.lastCreditRefreshAt ?? null } }, currentTime)) {
-      return user?.currentCredits ?? 0;
-    }
-
-    // Process any expired credits first
-    await processExpiredCredits(session.userId, currentTime);
-
-    // Add free monthly credits with 1 month expiration
-    const expirationDate = new Date(currentTime);
-    expirationDate.setMonth(expirationDate.getMonth() + 1);
-
-    await updateUserCredits(session.userId, FREE_MONTHLY_CREDITS);
-    await logTransaction({
-      userId: session.userId,
-      amount: FREE_MONTHLY_CREDITS,
-      description: 'Free monthly credits',
-      type: CREDIT_TRANSACTION_TYPE.MONTHLY_REFRESH,
-      expirationDate
-    });
-
-    // Update last refresh date
-    await updateLastRefreshDate(session.userId, currentTime);
-
-    // Get the updated credit balance from the database
-    const updatedUser = await db.query.userTable.findFirst({
-      where: eq(userTable.id, session.userId),
-      columns: {
-        currentCredits: true,
-      },
-    });
-
-    return updatedUser?.currentCredits ?? 0;
-  }
-
-  return session.user.currentCredits;
-}
-
-export async function hasEnoughCredits({ userId, requiredCredits }: { userId: string; requiredCredits: number }) {
-  const user = await getDB().query.userTable.findFirst({
-    where: eq(userTable.id, userId),
-    columns: {
-      currentCredits: true,
-    }
-  });
-  if (!user) return false;
-
-  return user.currentCredits >= requiredCredits;
-}
-
-export async function consumeCredits({ userId, amount, description }: { userId: string; amount: number; description: string }) {
   const db = getDB();
+  const userId = String(session.user.id);
 
-  // First check if user has enough credits
-  const user = await db.query.userTable.findFirst({
-    where: eq(userTable.id, userId),
-    columns: {
-      currentCredits: true,
-    },
-  });
-
-  if (!user || user.currentCredits < amount) {
-    throw new Error("Insufficient credits");
+  if (process.env.FEATURE_DAILY_FREE_CREDITS_ENABLED === "false") {
+    const r0 = await db
+      .select({ c: userTable.currentCredits })
+      .from(userTable)
+      .where(eq(userTable.id, userId))
+      .get();
+    return (r0?.c ?? 0) as number;
   }
 
-  // Get all non-expired transactions with remaining credits, ordered by creation date
-  const activeTransactionsWithBalance = await db.query.creditTransactionTable.findMany({
-    where: and(
-      eq(creditTransactionTable.userId, userId),
-      gt(creditTransactionTable.remainingAmount, 0),
-      isNull(creditTransactionTable.expirationDateProcessedAt),
-      or(
-        isNull(creditTransactionTable.expirationDate),
-        gt(creditTransactionTable.expirationDate, new Date())
-      )
-    ),
-    orderBy: [asc(creditTransactionTable.createdAt)],
-  });
-
-  let remainingToDeduct = amount;
-
-  // Deduct from each transaction until we've deducted the full amount
-  for (const transaction of activeTransactionsWithBalance) {
-    if (remainingToDeduct <= 0) break;
-
-    const deductFromThis = Math.min(transaction.remainingAmount, remainingToDeduct);
-
-    await db
-      .update(creditTransactionTable)
-      .set({
-        remainingAmount: transaction.remainingAmount - deductFromThis,
-      })
-      .where(eq(creditTransactionTable.id, transaction.id));
-
-    remainingToDeduct -= deductFromThis;
+  const amount = Number(process.env.DAILY_FREE_CREDITS ?? "0") || 0;
+  if (amount <= 0) {
+    const r0 = await db
+      .select({ c: userTable.currentCredits })
+      .from(userTable)
+      .where(eq(userTable.id, userId))
+      .get();
+    return (r0?.c ?? 0) as number;
   }
 
-  // Update total credits
+  const meta = await db
+    .select({ last: userTable.lastCreditRefreshAt })
+    .from(userTable)
+    .where(eq(userTable.id, userId))
+    .get();
+
+  const lastSec = toSec(meta?.last);
+
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const todaySec = Math.floor(today.getTime() / 1000);
+
+  const lastDay = new Date(lastSec * 1000);
+  lastDay.setUTCHours(0, 0, 0, 0);
+  const lastDaySec = Math.floor(lastDay.getTime() / 1000);
+
+  if (lastDaySec >= todaySec) {
+    const r = await db
+      .select({ c: userTable.currentCredits })
+      .from(userTable)
+      .where(eq(userTable.id, userId))
+      .get();
+    return (r?.c ?? 0) as number;
+  }
+
+  const now = new Date();
   await db
     .update(userTable)
-    .set({
-      currentCredits: sql`${userTable.currentCredits} - ${amount}`,
-    })
+    .set({ lastCreditRefreshAt: now, updatedAt: now })
     .where(eq(userTable.id, userId));
 
-  // Log the usage transaction
-  await db.insert(creditTransactionTable).values({
-    userId,
-    amount: -amount,
-    remainingAmount: 0, // Usage transactions don't have remaining amount
-    type: CREDIT_TRANSACTION_TYPE.USAGE,
-    description,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
+  await updateUserCredits(userId, amount);
+  try { await updateAllSessionsOfUser(userId); } catch {}
 
-  // Get updated credit balance
-  const updatedUser = await db.query.userTable.findFirst({
-    where: eq(userTable.id, userId),
-    columns: {
-      currentCredits: true,
-    },
-  });
+  const r2 = await db
+    .select({ c: userTable.currentCredits })
+    .from(userTable)
+    .where(eq(userTable.id, userId))
+    .get();
 
-  // Update all KV sessions to reflect the new credit balance
-  await updateAllSessionsOfUser(userId);
-
-  return updatedUser?.currentCredits ?? 0;
+  return (r2?.c ?? 0) as number;
 }
 
-export async function getCreditTransactions({
-  userId,
-  page = 1,
-  limit = 10
-}: {
+/* ------------------------- 交易列表（保持原导出） ------------------------- */
+
+export async function getCreditTransactions(args: {
   userId: string;
   page?: number;
   limit?: number;
+  [k: string]: any;
 }) {
   const db = getDB();
-  const transactions = await db.query.creditTransactionTable.findMany({
-    where: eq(creditTransactionTable.userId, userId),
-    orderBy: [desc(creditTransactionTable.createdAt)],
-    limit,
-    offset: (page - 1) * limit,
-    columns: {
-      expirationDateProcessedAt: false,
-      remainingAmount: false,
-      userId: false,
-    }
-  });
+  const page = Math.max(1, Number(args.page ?? 1));
+  const limit = Math.max(1, Number(args.limit ?? 10));
+  const offset = (page - 1) * limit;
 
-  const total = await db
-    .select({ count: sql<number>`count(*)` })
+  const totalRow = await db
+    .select({ count: sql<number>`count(*)`.as("count") })
     .from(creditTransactionTable)
-    .where(eq(creditTransactionTable.userId, userId))
-    .then((result) => result[0].count);
+    .where(eq(creditTransactionTable.userId, args.userId))
+    .get();
+  const total = Number(totalRow?.count ?? 0);
+
+  const baseSel = db
+    .select({
+      id: creditTransactionTable.id,
+      amount: creditTransactionTable.amount,
+      remainingAmount: creditTransactionTable.remainingAmount,
+      type: creditTransactionTable.type,
+      description: creditTransactionTable.description,
+      createdAt: creditTransactionTable.createdAt,
+      expirationDate: creditTransactionTable.expirationDate,
+      paymentIntentId: creditTransactionTable.paymentIntentId,
+    })
+    .from(creditTransactionTable)
+    .where(eq(creditTransactionTable.userId, args.userId))
+    .orderBy(desc(creditTransactionTable.createdAt))
+    .limit(limit);
+
+  // drizzle d1 版本差异：all/execute/offset 兼容
+  // @ts-ignore
+  const rows =
+    (await baseSel.offset?.(offset)?.all?.()) ??
+    // @ts-ignore
+    (await baseSel.offset?.(offset)?.execute?.()) ??
+    // @ts-ignore
+    (await baseSel.all?.()) ??
+    // @ts-ignore
+    (await baseSel.execute?.()) ??
+    [];
 
   return {
-    transactions,
+    transactions: rows,
     pagination: {
       total,
-      pages: Math.ceil(total / limit),
+      pages: Math.max(1, Math.ceil(total / limit)),
       current: page,
+      limit,
     },
   };
 }
 
-export async function getUserPurchasedItems(userId: string) {
+export async function getCreditTransactionsCount(userId: string) {
   const db = getDB();
-  const purchasedItems = await db.query.purchasedItemsTable.findMany({
-    where: eq(purchasedItemsTable.userId, userId),
-  });
+  const r = await db
+    .select({ count: sql<number>`count(*)`.as("count") })
+    .from(creditTransactionTable)
+    .where(eq(creditTransactionTable.userId, userId))
+    .get();
+  return Number(r?.count ?? 0);
+}
 
-  // Create a map of purchased items for easy lookup
-  return new Set(
-    purchasedItems.map(item => `${item.itemType}:${item.itemId}`)
-  );
+export async function getUserPurchasedItems(userId: string): Promise<Set<string>> {
+  const db = getDB();
+  // @ts-ignore
+  const q = db
+    .select({ itemId: purchasedItemsTable.itemId })
+    .from(purchasedItemsTable)
+    .where(eq(purchasedItemsTable.userId, userId));
+  // @ts-ignore
+  const rows = (await q.all?.()) ?? (await q.execute?.()) ?? [];
+  return new Set(rows.map((r: any) => r.itemId));
 }

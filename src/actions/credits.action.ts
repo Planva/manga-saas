@@ -4,8 +4,6 @@ import { requireVerifiedEmail } from "@/utils/auth";
 import {
   getCreditTransactions,
   updateUserCredits,
-  logTransaction,
-  getCreditPackage,
 } from "@/utils/credits";
 import { CREDIT_TRANSACTION_TYPE } from "@/db/schema";
 import { getStripe } from "@/lib/stripe";

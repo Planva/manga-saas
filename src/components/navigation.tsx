@@ -43,11 +43,13 @@ export function Navigation() {
 
   const navItems: NavItem[] = [
     { name: "Home", href: "/" },
+    { name: "Pricing", href: "/price" },
     ...(session ? [
-      { name: "Settings", href: "/settings" },
+     
       { name: "Dashboard", href: "/dashboard" },
     ] as NavItem[] : []),
   ]
+  
 
   const isActiveLink = (itemHref: string) => {
     if (itemHref === "/") {

@@ -1,24 +1,21 @@
-import { AppSidebar } from "@/components/app-sidebar"
-import { getSessionFromCookie } from "@/utils/auth"
-import {
-  SidebarInset,
-  SidebarProvider,
-} from "@/components/ui/sidebar"
-import { redirect } from "next/navigation"
+import { getSessionFromCookie } from "@/utils/auth";
+import { redirect } from "next/navigation";
+import { AppSidebar } from "@/components/app-sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { FEATURES } from "@/config/features"; // ← 仍然在服务端读取
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const session = await getSessionFromCookie()
-
-  if (!session) {
-    return redirect('/')
-  }
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await getSessionFromCookie();
+  if (!session) redirect("/sign-in");
 
   return (
     <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        {children}
-      </SidebarInset>
+      <AppSidebar featureFlags={FEATURES} /> {/* ← 传入服务端读取的 flags */}
+      <SidebarInset className="w-full flex flex-col">{children}</SidebarInset>
     </SidebarProvider>
-  )
+  );
 }

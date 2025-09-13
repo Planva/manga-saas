@@ -2,7 +2,7 @@ import { getSessionFromCookie } from "@/utils/auth"
 import { NextResponse } from "next/server"
 import { tryCatch } from "@/lib/try-catch"
 import { getConfig } from "@/flags"
-
+export const dynamic = 'force-dynamic';
 export async function GET() {
   const { data: session, error } = await tryCatch(getSessionFromCookie())
   const config = await getConfig()

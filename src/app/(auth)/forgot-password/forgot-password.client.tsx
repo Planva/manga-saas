@@ -136,7 +136,7 @@ export default function ForgotPasswordClientComponent() {
             type="button"
             variant="link"
             className="w-full"
-            onClick={() => router.push("/settings")}
+            onClick={() => router.push("/dashboard/settings")}
           >
             Back to settings
           </Button>

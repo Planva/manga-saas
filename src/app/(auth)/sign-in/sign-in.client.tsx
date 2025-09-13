@@ -16,7 +16,7 @@ import { useServerAction } from "zsa-react";
 import Link from "next/link";
 import SSOButtons from "../_components/sso-buttons";
 import { KeyIcon } from "lucide-react";
-import { generateAuthenticationOptionsAction, verifyAuthenticationAction } from "@/app/(settings)/settings/security/passkey-settings.actions";
+import { generateAuthenticationOptionsAction, verifyAuthenticationAction } from "@/app/(dashboard)/dashboard/settings/security/passkey-settings.actions";
 import { startAuthentication } from "@simplewebauthn/browser";
 
 interface SignInClientProps {

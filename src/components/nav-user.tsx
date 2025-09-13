@@ -124,7 +124,7 @@ export function NavUser() {
             <DropdownMenuGroup>
               <DropdownMenuItem className="cursor-pointer" onClick={() => {
                 setOpenMobile(false)
-                router.push('/settings')
+                router.push('/dashboard/settings')
               }}>
                 <BadgeCheck />
                 Account

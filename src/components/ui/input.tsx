@@ -1,9 +1,16 @@
-import * as React from "react"
+// src/components/ui/input.tsx
+"use client";
 
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import { cn } from "@/lib/utils";
 
-const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
-  ({ className, type, ...props }, ref) => {
+export interface InputProps
+  extends React.InputHTMLAttributes<HTMLInputElement> {}
+
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type = "text", value, defaultValue, onChange, ...rest }, ref) => {
+    const isControlled = value !== undefined;
+
     return (
       <input
         type={type}
@@ -12,11 +19,14 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
           className
         )}
         ref={ref}
-        {...props}
+        // 只有受控时才传 value，并把 undefined/null 归一为 ""，避免 uncontrolled→controlled 警告
+        {...(isControlled ? { value: value ?? "" } : { defaultValue })}
+        onChange={onChange}
+        {...rest}
       />
-    )
+    );
   }
-)
-Input.displayName = "Input"
+);
 
-export { Input }
+Input.displayName = "Input";
+export default Input;

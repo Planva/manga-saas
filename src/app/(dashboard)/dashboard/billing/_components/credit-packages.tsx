@@ -1,172 +1,189 @@
-"use client";
-
-import { useState } from "react";
+// Server Component（不要 "use client"）
+import { checkout } from "@/app/(marketing)/price/server-actions";
+import { getStripe } from "@/lib/stripe";
+import { getSessionFromCookie } from "@/utils/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { CREDIT_PACKAGES, FREE_MONTHLY_CREDITS } from "@/constants";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { StripePaymentForm } from "./stripe-payment-form";
-import { createPaymentIntent } from "@/actions/credits.action";
-import { Coins, Sparkles, Zap } from "lucide-react";
-import { useSessionStore } from "@/state/session";
-import { useTransactionStore } from "@/state/transaction";
-import { Separator } from "@/components/ui/separator";
-import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
-type CreditPackage = typeof CREDIT_PACKAGES[number];
+import { FREE_MONTHLY_CREDITS } from "@/constants";
 
-export const getPackageIcon = (index: number) => {
-  if (index === 2) return <Zap className="h-6 w-6 text-yellow-500" />;
-  if (index === 1) return <Sparkles className="h-6 w-6 text-blue-500" />;
-  return <Coins className="h-6 w-6 text-green-500" />;
+type Product = {
+  priceId: string;
+  kind: "pack" | "subscription";
+  title: string;
+  subtitle?: string;
+  unitAmountText: string;
+  badge?: string;
 };
 
-// Calculate savings percentage compared to the first package
-const calculateSavings = (pkg: CreditPackage) => {
-  const basePackage = CREDIT_PACKAGES[0];
-  const basePrice = basePackage.price / basePackage.credits;
-  const currentPrice = pkg.price / pkg.credits;
-  const savings = ((basePrice - currentPrice) / basePrice) * 100;
-  return Math.round(savings);
-};
+function fmtMoney(unitAmount: number | null, currency: string | null) {
+  const cents = typeof unitAmount === "number" ? unitAmount : 0;
+  const iso = (currency || "usd").toUpperCase();
+  const amount = cents / 100;
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: iso,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `$${amount.toFixed(2)}`;
+  }
+}
 
-export function CreditPackages() {
-  const router = useRouter();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const session = useSessionStore((state) => state);
-  const transactionsRefresh = useTransactionStore((state) => state.triggerRefresh);
-  const sessionIsLoading = session?.isLoading;
-
-  const handlePurchase = async (pkg: CreditPackage) => {
-    try {
-      const { clientSecret } = await createPaymentIntent({
-        packageId: pkg.id,
-      });
-      setClientSecret(clientSecret);
-      setSelectedPackage(pkg);
-      setIsDialogOpen(true);
-    } catch (error) {
-      console.error("Error creating payment intent:", error);
-    }
+function readEnvPriceIds() {
+  const ids = {
+    PACK_STARTER: process.env.NEXT_PUBLIC_STRIPE_PACK_STARTER,
+    PACK_STANDARD: process.env.NEXT_PUBLIC_STRIPE_PACK_STANDARD,
+    PACK_BULK: process.env.NEXT_PUBLIC_STRIPE_PACK_BULK,
+    SUB_MONTHLY: process.env.NEXT_PUBLIC_STRIPE_SUB_MONTHLY,
+    SUB_YEARLY: process.env.NEXT_PUBLIC_STRIPE_SUB_YEARLY,
   };
+  return Object.fromEntries(
+    Object.entries(ids).filter(([, v]) => typeof v === "string" && v)
+  ) as Record<string, string>;
+}
 
-  const handleSuccess = () => {
-    setIsDialogOpen(false);
-    setSelectedPackage(null);
-    setClientSecret(null);
-    router.refresh();
-    transactionsRefresh();
-  };
+async function loadProducts(): Promise<Product[]> {
+  const env = readEnvPriceIds();
+  const pairs = Object.entries(env).map(([key, id]) => ({ key, id }));
+  if (!pairs.length) return [];
+
+  const stripe = getStripe();
+
+  const prices = await Promise.all(
+    pairs.map(async ({ key, id }) => {
+      const p = await stripe.prices.retrieve(id);
+
+      const kind: Product["kind"] =
+        p.recurring?.interval ? "subscription" : "pack";
+
+      const nickname = p.nickname?.trim();
+      const fallbackTitle =
+        key === "PACK_STARTER"
+          ? "Starter"
+          : key === "PACK_STANDARD"
+          ? "Standard"
+          : key === "PACK_BULK"
+          ? "Bulk"
+          : key === "SUB_MONTHLY"
+          ? "Monthly"
+          : key === "SUB_YEARLY"
+          ? "Yearly"
+          : "Plan";
+
+      const subtitle =
+        kind === "subscription"
+          ? p.recurring?.interval === "year"
+            ? "Credits per year · rollover"
+            : "Credits per month · rollover"
+          : undefined;
+
+      const unitAmountText =
+        kind === "subscription" && p.recurring?.interval === "month"
+          ? `${fmtMoney(p.unit_amount, p.currency)} / mo`
+          : kind === "subscription" && p.recurring?.interval === "year"
+          ? `${fmtMoney(p.unit_amount, p.currency)} / yr`
+          : `${fmtMoney(p.unit_amount, p.currency)}`;
+
+      return {
+        priceId: id,
+        kind,
+        title: nickname || fallbackTitle,
+        subtitle,
+        unitAmountText,
+        badge:
+          key === "PACK_STANDARD" || key === "SUB_YEARLY" ? "Popular" : undefined,
+      } as Product;
+    })
+  );
+
+  // 一次性在前、订阅在后
+  return [
+    ...prices.filter((x) => x.kind === "pack"),
+    ...prices.filter((x) => x.kind === "subscription"),
+  ];
+}
+
+function ProductCard({ p }: { p: Product }) {
+  const action = checkout.bind(null, {
+    kind: p.kind,
+    priceId: p.priceId,
+  });
+
+  return (
+    <div className="relative w-[280px] shrink-0 rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 shadow">
+      {p.badge && (
+        <span className="absolute right-3 top-3 rounded-full bg-fuchsia-600/20 px-2 py-0.5 text-xs text-fuchsia-300">
+          {p.badge}
+        </span>
+      )}
+      <div className="text-sm text-gray-300">
+        {p.kind === "subscription" ? "Subscription" : "One-time"}
+      </div>
+      <div className="mt-1 text-lg font-semibold">{p.title}</div>
+      <div className="mt-2 text-3xl font-bold">{p.unitAmountText}</div>
+      {p.subtitle && (
+        <div className="mt-1 text-xs text-gray-400">{p.subtitle}</div>
+      )}
+
+      <form action={action} className="mt-5">
+        <button className="w-full rounded-xl bg-gradient-to-r from-fuchsia-500 to-violet-500 px-4 py-2.5 text-sm font-semibold text-white hover:opacity-95">
+          {p.kind === "subscription" ? "Subscribe" : "Purchase Now"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+/** 余额卡片（恢复“位置①”显示） */
+async function CreditSummaryCard() {
+  const session = await getSessionFromCookie();
+  if (!session?.user) return null;
+
+  const credits = Number(session.user.currentCredits || 0);
+
+  // 文案：如果开启了每日赠送，就显示每日；否则显示每月常量
+  const dailyEnabled = process.env.FEATURE_DAILY_FREE_CREDITS_ENABLED !== "false";
+  const dailyAmount = Number(process.env.DAILY_FREE_CREDITS ?? "0") || 0;
+  const tip = dailyEnabled && dailyAmount > 0
+    ? `You get ${dailyAmount} free credits every day.`
+    : `You get ${FREE_MONTHLY_CREDITS} free credits every month.`;
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle>Credits</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="text-3xl font-bold">{credits.toLocaleString()} credits</div>
+        <div className="text-sm text-muted-foreground">{tip}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export async function CreditPackages() {
+  const products = await loadProducts();
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle>Credits</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-8">
-          <div className="space-y-2">
-            <div className="flex items-baseline gap-2">
-              {sessionIsLoading ? (
-                <>
-                  <Skeleton className="h-9 w-16" />
-                  <Skeleton className="h-9 w-24" />
-                </>
-              ) : (
-                <div className="text-3xl font-bold">
-                  {session?.session?.user?.currentCredits.toLocaleString()} credits
-                </div>
-              )}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              You get {FREE_MONTHLY_CREDITS} free credits every month.
-            </div>
-          </div>
+      {/* 恢复顶部“Credits …”卡片 */}
+      <CreditSummaryCard />
 
-          <Separator />
-
-          <div className="space-y-4">
-            <div>
-              <h2 className="text-xl sm:text-2xl font-semibold">Top up your credits</h2>
-              <p className="text-sm text-muted-foreground mt-2 sm:mt-3">
-                Purchase additional credits to use our services. The more credits you buy, the better the value.
-              </p>
-            </div>
-
-            <div className="grid gap-4 xl:grid-cols-3">
-              {CREDIT_PACKAGES.map((pkg, index) => (
-                <Card key={pkg.id} className="relative overflow-hidden transition-all hover:shadow-lg bg-muted dark:bg-background">
-                  <CardContent className="flex flex-col h-full pt-4 gap-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        {getPackageIcon(index)}
-                        <div>
-                          <div className="text-xl sm:text-2xl font-bold">
-                            {pkg.credits.toLocaleString()}
-                          </div>
-                          <div className="text-xs sm:text-sm text-muted-foreground">
-                            credits
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end">
-                        <div className="text-xl sm:text-2xl font-bold text-primary">
-                          ${pkg.price}
-                        </div>
-                        <div className="text-xs sm:text-sm text-muted-foreground">
-                          one-time payment
-                        </div>
-                        {index > 0 ? (
-                          <Badge variant="secondary" className="mt-1 text-xs sm:text-sm bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
-                            Save {calculateSavings(pkg)}%
-                          </Badge>
-                        ) : (
-                          <div className="h-[22px] sm:h-[26px]" /> /* Placeholder for badge height */
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex-grow" />
-                    <Button
-                      onClick={() => {
-                        if (process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
-                          handlePurchase(pkg)
-                        } else {
-                          toast.error("Something went wrong with our payment provider. Please try again later.")
-                        }
-                      }}
-                      className="w-full text-sm sm:text-base"
-                    >
-                      Purchase Now
-                    </Button>
-                  </CardContent>
-                </Card>
+      {/* 横向滑动的价格卡片（自动读取 Stripe Price） */}
+      {!!products.length && (
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4">
+          <div className="overflow-x-auto pb-2">
+            <div className="flex gap-4 min-w-max pr-4">
+              {products.map((p) => (
+                <ProductCard key={p.priceId} p={p} />
               ))}
             </div>
           </div>
-        </CardContent>
-      </Card>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Purchase Credits</DialogTitle>
-          </DialogHeader>
-          {(clientSecret && selectedPackage) && (
-            <StripePaymentForm
-              packageId={selectedPackage.id}
-              clientSecret={clientSecret}
-              onSuccess={handleSuccess}
-              onCancel={() => setIsDialogOpen(false)}
-              credits={selectedPackage.credits}
-              price={selectedPackage.price}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+          <div className="mt-2 text-center text-xs text-gray-500">
+            Scroll to see more plans →
+          </div>
+        </div>
+      )}
     </>
   );
 }

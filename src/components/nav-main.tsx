@@ -42,7 +42,7 @@ export function NavMain({
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton asChild tooltip={item.title}>
                   <Link
-                    href={item.url as Route}
+                    href={item.url as Route} prefetch={false}
                     onClick={() => setOpenMobile(false)}
                   >
                     {item.icon && <item.icon />}
