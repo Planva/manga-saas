@@ -1,26 +1,49 @@
-// app/api/stripe/portal/route.ts
-import { stripe } from '@/src/lib/stripe';
-import { getCurrentUser } from '@/src/lib/auth';
+// src/app/api/stripe/portal/route.ts
+import { NextResponse } from 'next/server';
+import { getSessionFromCookie } from '@/utils/auth';
+import { getStripe } from '@/lib/stripe';
+import { getDB } from '@/db';
+import { userTable } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export const runtime = 'edge';
 
-export async function POST() {
-  const user = await getCurrentUser();
-  if (!user) return new Response('Unauthorized', { status: 401 });
+export async function POST(req: Request) {
+  const session = await getSessionFromCookie();
+  if (!session?.user?.id) {
+    return NextResponse.redirect(new URL('/sign-in?next=/dashboard/billing', req.url));
+  }
+  const userId = String(session.user.id);
 
-  // If you persist stripeCustomerId, use it. Otherwise, search by email (works if unique)
-  const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-  const customer = customers.data[0];
-  if (!customer) return new Response('No Stripe customer', { status: 404 });
+  const db = getDB();
+  const u = await db
+    .select({ email: userTable.email, stripeCustomerId: userTable.stripeCustomerId })
+    .from(userTable)
+    .where(eq(userTable.id, userId))
+    .get();
 
-  const returnUrl =
-    process.env.STRIPE_PORTAL_RETURN_URL ??
-    (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000') + '/dashboard/billing';
+  const stripe = getStripe();
+  let customerId = (u?.stripeCustomerId as string | undefined) ?? undefined;
+
+  if (!customerId) {
+    const email = u?.email || session.user.email!;
+    const found = await stripe.customers.list({ email, limit: 1 });
+    if (found.data.length) customerId = found.data[0].id;
+    else customerId = (await stripe.customers.create({ email, metadata: { userId } })).id;
+
+    await db
+      .update(userTable)
+      .set({ stripeCustomerId: customerId, updatedAt: new Date() })
+      .where(eq(userTable.id, userId));
+  }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+  const returnUrl = process.env.STRIPE_PORTAL_RETURN_URL ?? `${siteUrl}/dashboard/billing`;
 
   const portal = await stripe.billingPortal.sessions.create({
-    customer: customer.id,
+    customer: customerId!,
     return_url: returnUrl,
   });
 
-  return Response.json({ url: portal.url });
+  return NextResponse.redirect(portal.url, { status: 303 });
 }
