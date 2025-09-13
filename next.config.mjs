@@ -1,15 +1,16 @@
 // next.config.mjs
-/** @type {import('next').NextConfig} */
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+
+// ✅ 本地开发必须初始化（对生产没副作用）
+initOpenNextCloudflareForDev();
+
 const nextConfig = {
-  // 生产构建时忽略 ESLint（CI 不再因 lint 报错而失败）
-  eslint: {
-    ignoreDuringBuilds: true,
+  experimental: {
+    typedRoutes: true,
   },
-  // 生产构建时忽略 TS 类型报错（可选，先保障部署）
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  // 你已有的其他配置保持不变……
+  // 这些选项你可以按需保留/删除
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
 };
 
 export default nextConfig;
