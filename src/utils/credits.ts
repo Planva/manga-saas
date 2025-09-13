@@ -119,6 +119,45 @@ export async function hasUnlimitedAccess(userId: string): Promise<boolean> {
   return ensureUnlimitedByStripe(userId);
 }
 
+// === Back-compat for legacy marketplace purchase.action.ts ===
+
+/**
+ * 判断积分是否足够。处于“无限使用期”也视为足够。
+ */
+export async function hasEnoughCredits(userId: string, amount: number): Promise<boolean> {
+  // 无限订阅直接放行
+  if (await hasUnlimitedAccess(userId)) return true;
+
+  const db = getDB();
+  const row = await db
+    .select({ c: userTable.currentCredits })
+    .from(userTable)
+    .where(eq(userTable.id, userId))
+    .get();
+
+  const current = Number(row?.c ?? 0);
+  return current >= Math.max(0, Number(amount || 0));
+}
+
+/**
+ * 消耗积分。内部调用统一入口 updateUserCredits。
+ * 兼容老签名：consumeCredits(userId, amount, opts?)
+ */
+export async function consumeCredits(
+  userId: string,
+  amount: number,
+  _opts?: {
+    description?: string;
+    type?: string;
+    paymentIntentId?: string;
+    expirationDate?: Date | null;
+  }
+) {
+  const amt = Math.abs(Number(amount || 0));
+  // updateUserCredits 自带“无限订阅跳过”和“余额不足保护”
+  return updateUserCredits(userId, -amt);
+}
+
 /* ------------------------- 交易记录 ------------------------- */
 
 async function logCreditTransaction(
