@@ -1,7 +1,7 @@
 // app/api/stripe/checkout/route.ts
 import { getStripe } from '@/lib/stripe'
 import { NextRequest } from 'next/server';
-import { getCurrentUser } from '@/src/lib/auth'; // use your existing auth util
+import { getCurrentUser } from '@/lib/auth'; // use your existing auth util
 const stripe = getStripe();
 export const runtime = 'edge';
 
