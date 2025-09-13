@@ -1,8 +1,9 @@
 import type { Route } from "next"
-
+import { getSiteUrl } from "@/utils/site-url";
 export const SITE_NAME = "SaaS"
 export const SITE_DESCRIPTION = "A modern SaaS template built with Next.js 15 and Cloudflare Workers, designed for scalability and performance."
-export const SITE_URL = process.env.NODE_ENV === "development" ? "http://localhost:3000" : "aimangatranslate.com"
+//export const SITE_URL = process.env.NODE_ENV === "development" ? "http://localhost:3000" : "https://saimangatranslate.com"
+export const SITE_URL = getSiteUrl();
 export const GITHUB_REPO_URL = ""
 
 export const SITE_DOMAIN = new URL(SITE_URL).hostname
