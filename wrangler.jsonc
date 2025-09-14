@@ -1,0 +1,97 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+ {
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "account_id": "56db5c1a91ec01f4b3c7c612d8ebeeef",
+    "name": "manga-saas", //项目名称
+    "main": ".open-next/worker.js",
+    "compatibility_date": "2025-03-01",
+    "compatibility_flags": [
+      "nodejs_compat",
+      "global_fetch_strictly_public"
+    ],
+    // Minification helps to keep the Worker bundle size down and improve start up time.
+    "minify": true,
+    "assets": {
+      "binding": "ASSETS",
+      "directory": ".open-next/assets"
+    },
+    "observability": {
+      "enabled": true
+    },
+    /**
+     * Smart Placement
+     * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
+     */
+    "placement": { "mode": "smart" },
+
+    /**
+     * Bindings
+     * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
+     * databases, object storage, AI inference, real-time communication and more.
+     * https://developers.cloudflare.com/workers/runtime-apis/bindings/
+     */
+
+    /**
+     * Environment Variables
+     * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
+     */
+    "vars": {
+        "EMAIL_FROM": "support@aimangatranslate.com",
+        "EMAIL_FROM_NAME": "support",
+        "EMAIL_REPLY_TO": "support@aimangatranslate.com"
+    },
+    /**
+     * Note: Use secrets to store sensitive data.
+     * https://developers.cloudflare.com/workers/configuration/secrets/
+     */
+
+    /**
+     * Service Bindings (communicate between multiple Workers)
+     * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
+     */
+     "services": [
+      {
+        "binding": "WORKER_SELF_REFERENCE",
+        "service": "manga-saas"
+      }
+    ],
+
+    "durable_objects": {
+      "bindings": [
+        {
+          "name": "NEXT_CACHE_DO_QUEUE",
+          "class_name": "DOQueueHandler",
+        }
+      ]
+    },
+
+    "migrations": [
+      {
+        "tag": "v1",
+        "new_sqlite_classes": ["DOQueueHandler"],
+      },
+    ],
+
+    "d1_databases": [
+      {
+        "binding": "DB",
+        "database_name": "manga_saas_d1", //D1数据库名
+        "database_id": "dd093903-fe1c-44cc-a2f7-858459431de4", //D1数据ID
+        "migrations_dir": "src/db/migrations"
+      },
+      {
+        "binding": "NEXT_TAG_CACHE_D1",
+        "database_name": "manga_saas_d1",  //D1数据库名
+        "database_id": "dd093903-fe1c-44cc-a2f7-858459431de4" //D1数据ID
+      }
+    ],
+    "kv_namespaces": [
+        {
+            "binding": "NEXT_INC_CACHE_KV",
+            "id": "f97e17adcd3a42f88736020c31be1491" // KV ID
+        }
+    ]
+  }
