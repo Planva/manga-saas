@@ -16,6 +16,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import SeparatorWithText from "@/components/separator-with-text";
 
+import SSOButtons from "../_components/sso-buttons";
+
+
 type Props = { redirectPath: string };
 
 export default function SignInClient({ redirectPath }: Props) {
@@ -68,6 +71,10 @@ export default function SignInClient({ redirectPath }: Props) {
         <div className="space-y-2 text-center">
           <h1 className="text-2xl font-bold">Sign in</h1>
           <p className="text-sm text-muted-foreground">Welcome back</p>
+          <div className="mt-6">
+            {/* 登录页用 isSignIn，文案会是 “Sign in with Google” */}
+            <SSOButtons isSignIn />
+          </div>
         </div>
 
         <SeparatorWithText text="Email" />
