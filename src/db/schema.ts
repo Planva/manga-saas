@@ -365,6 +365,7 @@ export type Team = InferSelectModel<typeof teamTable>;
 export type TeamMembership = InferSelectModel<typeof teamMembershipTable>;
 export type TeamRole = InferSelectModel<typeof teamRoleTable>;
 export type TeamInvitation = InferSelectModel<typeof teamInvitationTable>;
+<<<<<<< HEAD
 export const adminBannerSettingsTable = sqliteTable("admin_banner_settings", {
   ...commonColumns,
   id: text().primaryKey().$defaultFn(() => "default").notNull(),
@@ -413,6 +414,8 @@ export const adminUserEventTable = sqliteTable("admin_user_event", {
   context: text(),
 });
 export type AdminUserEvent = InferSelectModel<typeof adminUserEventTable>;
+=======
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
 // --- Guest quota for anonymous users (per UTC day + device did) ---
 
 
@@ -444,4 +447,8 @@ export const stripeCustomerMapTable = sqliteTable("stripe_customer_map", {
 // （可选）relations 如需
 export const stripeCustomerMapRelations = relations(stripeCustomerMapTable, ({ one }) => ({
   // user: one(userTable, { fields: [stripeCustomerMapTable.userId], references: [userTable.id] })
+<<<<<<< HEAD
 }));
+=======
+}));
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2

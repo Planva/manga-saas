@@ -9,8 +9,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NextTopLoader from 'nextjs-toploader'
 import { SITE_NAME, SITE_DESCRIPTION, SITE_URL } from "@/constants";
 import { AgenticDevStudioStickyBanner } from "@/components/startup-studio-sticky-banner";
+<<<<<<< HEAD
 import { getAdminBannerSettings } from "@/utils/admin-banner-settings";
 import { AnnouncementBanner } from "@/components/announcement-banner";
+=======
+import type { Metadata } from "next";
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
 export const dynamic = "force-dynamic";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -54,11 +58,16 @@ export const metadata: Metadata = {
   },
 };
 
+<<<<<<< HEAD
 export default async function BaseLayout({
+=======
+export default function BaseLayout({
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+<<<<<<< HEAD
   let bannerSettings = {
     isEnabled: false,
     messages: [] as string[],
@@ -71,6 +80,8 @@ export default async function BaseLayout({
     console.error("Failed to load banner settings", error);
   }
 
+=======
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
@@ -88,7 +99,10 @@ export default async function BaseLayout({
             delayDuration={100}
             skipDelayDuration={50}
           >
+<<<<<<< HEAD
             <AnnouncementBanner settings={bannerSettings} />
+=======
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
             {children}
           </TooltipProvider>
         </ThemeProvider>

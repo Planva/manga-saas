@@ -1,9 +1,16 @@
+<<<<<<< HEAD
+=======
+// src/app/(marketing)/price/page.tsx
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import Link from "next/link";
 import BuyButton from "./_components/buy-button.client";
+<<<<<<< HEAD
 import { getSystemSettings } from "@/utils/system-settings";
+=======
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
 
 type Tab = "pack" | "subscription";
 
@@ -101,6 +108,7 @@ function Card(props: {
 export default async function Page({
   searchParams,
 }: {
+<<<<<<< HEAD
   searchParams: Promise<{ tab?: "pack" | "subscription" }>;
 }) {
   const [{ tab: tabRaw }, settings] = await Promise.all([
@@ -129,12 +137,37 @@ export default async function Page({
   if (hasPackProducts && hasSubscriptionProducts) {
     tab = tabRaw === "subscription" ? "subscription" : "pack";
   } else if (hasSubscriptionProducts) {
+=======
+  // Next 15: searchParams 是 Promise，需要 await
+  searchParams: Promise<{ tab?: "pack" | "subscription" }>;
+}) {
+  // 1) 读取 tab
+  const { tab: tabRaw } = await searchParams;
+
+  // 2) 按配置判断显示
+  const ENABLE_PACKS = process.env.FEATURE_ENABLE_PACKS !== "false";
+  const ENABLE_SUBS = process.env.FEATURE_ENABLE_SUBSCRIPTIONS !== "false";
+
+  let tab: Tab;
+  if (ENABLE_PACKS && ENABLE_SUBS) {
+    tab = tabRaw === "subscription" ? "subscription" : "pack";
+  } else if (ENABLE_SUBS) {
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
     tab = "subscription";
   } else {
     tab = "pack";
   }
 
+<<<<<<< HEAD
   const showToggle = hasPackProducts && hasSubscriptionProducts;
+=======
+  // 3) Stripe 价格 ID（保持功能不变）
+  const PACK_STARTER = process.env.NEXT_PUBLIC_STRIPE_PACK_STARTER!;
+  const PACK_STANDARD = process.env.NEXT_PUBLIC_STRIPE_PACK_STANDARD!;
+  const PACK_BULK = process.env.NEXT_PUBLIC_STRIPE_PACK_BULK!;
+  const SUB_MONTHLY = process.env.NEXT_PUBLIC_STRIPE_SUB_MONTHLY!;
+  const SUB_YEARLY = process.env.NEXT_PUBLIC_STRIPE_SUB_YEARLY!;
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12">
@@ -143,6 +176,7 @@ export default async function Page({
         Choose the plan that works for you — pay-per-use packs or monthly/yearly subscriptions.
       </p>
 
+<<<<<<< HEAD
       {showToggle ? <Toggle tab={tab} /> : null}
 
       {hasPackProducts && (tab === "pack" || !hasSubscriptionProducts) && (
@@ -222,6 +256,62 @@ export default async function Page({
       {!hasPackProducts && !hasSubscriptionProducts && (
         <div className="mt-10 rounded-2xl border border-dashed border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
           Pricing is currently hidden because no Stripe price IDs are configured. Update the values in the admin credit settings page to publish plans.
+=======
+      {/* 两种都开时才显示切换条 */}
+      {ENABLE_PACKS && ENABLE_SUBS ? <Toggle tab={tab} /> : null}
+
+      {/* 一次性购买 */}
+      {ENABLE_PACKS && (tab === "pack" || !ENABLE_SUBS) && (
+        <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
+          <Card
+            title="Starter Pack"
+            price="$6.90"
+            subtitle="≈ 300 translations"
+            actionLabel="Get Started"
+            kind="pack"
+            priceId={PACK_STARTER}
+          />
+          <Card
+            title="Standard Pack"
+            price="$19.90"
+            subtitle="≈ 1,000 translations"
+            highlight
+            actionLabel="Get Started"
+            kind="pack"
+            priceId={PACK_STANDARD}
+          />
+          <Card
+            title="Bulk Pack"
+            price="$24.90"
+            subtitle="≈ 1,200 translations"
+            actionLabel="Get Started"
+            kind="pack"
+            priceId={PACK_BULK}
+          />
+        </div>
+      )}
+
+      {/* 订阅 */}
+      {ENABLE_SUBS && (tab === "subscription" || !ENABLE_PACKS) && (
+        <div className="mt-16 grid grid-cols-1 gap-6 md:grid-cols-2">
+          <Card
+            title="Monthly"
+            price="$19.90"
+            subtitle="1,200 credits / month · rollover"
+            actionLabel="Subscribe Monthly"
+            kind="subscription"
+            priceId={SUB_MONTHLY}
+          />
+          <Card
+            title="Yearly"
+            price="$199.90"
+            subtitle="16,000 credits / year · rollover"
+            highlight
+            actionLabel="Subscribe Yearly"
+            kind="subscription"
+            priceId={SUB_YEARLY}
+          />
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
         </div>
       )}
 

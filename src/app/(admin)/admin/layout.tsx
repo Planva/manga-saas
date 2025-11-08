@@ -16,8 +16,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <SidebarProvider>
       <AdminSidebar />
+<<<<<<< HEAD
       <SidebarInset className="flex w-full flex-col">
         <div className="flex flex-1 flex-col">{children}</div>
+=======
+      <SidebarInset className="w-full flex flex-col">
+        {children}
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
       </SidebarInset>
     </SidebarProvider>
   )

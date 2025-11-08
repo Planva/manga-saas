@@ -8,11 +8,15 @@ import { db } from "@/db";
 import { userTable } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import SubscriptionCard from "./_components/subscription-card";
+<<<<<<< HEAD
 import { logUserEvent } from "@/utils/user-events";
+=======
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+<<<<<<< HEAD
 export default async function BillingPage({
   searchParams,
 }: {
@@ -44,6 +48,12 @@ export default async function BillingPage({
     redirect("/dashboard/billing");
   }
 
+=======
+export default async function BillingPage() {
+  const session = await getSessionFromCookie();
+  if (!session) redirect("/sign-in");
+
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
   const row = await db
     .select({ u: userTable.unlimitedUsageUntil })
     .from(userTable)

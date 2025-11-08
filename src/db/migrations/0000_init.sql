@@ -11,4 +11,7 @@ CREATE TABLE `user` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `user_email_unique` ON `user` (`email`);
+<<<<<<< HEAD
 
+=======
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2

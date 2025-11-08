@@ -1,17 +1,27 @@
 "use client"
 
+<<<<<<< HEAD
 import { type ComponentType, useMemo } from "react"
+=======
+import { type ComponentType } from "react"
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
 import type { Route } from 'next'
 import {
   Users,
   Shield,
+<<<<<<< HEAD
   Settings2,
   BarChart3,
+=======
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
+<<<<<<< HEAD
 import { usePathname } from "next/navigation"
+=======
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
 import {
   Sidebar,
   SidebarContent,
@@ -34,11 +44,16 @@ export type NavMainItem = NavItem & {
   items?: NavItem[]
 }
 
+<<<<<<< HEAD
 const baseAdminNavItems: NavMainItem[] = [
+=======
+const adminNavItems: NavMainItem[] = [
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
   {
     title: "Users",
     url: "/admin",
     icon: Users,
+<<<<<<< HEAD
   },
   {
     title: "System Settings",
@@ -63,10 +78,14 @@ const baseAdminNavItems: NavMainItem[] = [
     title: "User Analytics",
     url: "/admin/system/analytics",
     icon: BarChart3,
+=======
+    isActive: true,
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
   },
 ]
 
 export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+<<<<<<< HEAD
   const pathname = usePathname() ?? "/admin"
   const navItems = useMemo(
     () =>
@@ -81,6 +100,8 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
     [pathname],
   );
 
+=======
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarContent>
@@ -97,7 +118,11 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
+<<<<<<< HEAD
         <NavMain items={navItems} />
+=======
+        <NavMain items={adminNavItems} />
+>>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
       </SidebarContent>
       <SidebarFooter>
         <NavUser />
