@@ -21,10 +21,7 @@ import { SESSION_COOKIE_NAME } from "@/constants";
 import { ZSAError } from "zsa";
 import { addFreeMonthlyCreditsIfNeeded } from "./credits";
 import { getInitials } from "./name-initials";
-<<<<<<< HEAD
 import { isDisposableEmailDomain } from "./disposable-email-domains";
-=======
->>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
 const isProd = process.env.NODE_ENV === "production";
 const SESSION_COOKIE_NAME = process.env.NEXT_PUBLIC_SESSION_COOKIE_NAME ?? "session"; // 你的项目里已有常量就复用它
 const getSessionLength = () => {
@@ -399,7 +396,6 @@ async function checkWithMailcheck(email: string): Promise<ValidatorResult> {
  * @throws {ZSAError} If email is disposable or if all services fail
  */
 export async function canSignUp({ email }: { email: string }): Promise<void> {
-<<<<<<< HEAD
   const sanitizedEmail = email.trim().toLowerCase();
   const domain = sanitizedEmail.split("@")[1]?.trim();
 
@@ -418,9 +414,6 @@ export async function canSignUp({ email }: { email: string }): Promise<void> {
   }
 
   // Skip remote disposable email check in development to avoid network calls.
-=======
-  // Skip disposable email check in development
->>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
   if (!isProd) {
     return;
   }
@@ -431,11 +424,7 @@ export async function canSignUp({ email }: { email: string }): Promise<void> {
   ];
 
   for (const validator of validators) {
-<<<<<<< HEAD
     const result = await validator(sanitizedEmail);
-=======
-    const result = await validator(email);
->>>>>>> c318bc0da412ee36ceda80e704d3f01a4ace9cc2
 
     // If the validator failed (network error, rate limit, etc), try the next one
     if (!result.success) {
