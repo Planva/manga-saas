@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { getUserEventSummary } from "@/utils/user-events";
+import { getUserEventSummary, getUserEventTimelines } from "@/utils/user-events";
 
 export const metadata: Metadata = {
   title: "User Behavior",
@@ -8,16 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default async function UserAnalyticsPage() {
-  const { totals, recent } = await getUserEventSummary();
-
-  const safeParse = (value: string | null | undefined) => {
-    if (!value) return null;
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
-    }
-  };
+  const [{ totals }, { timelines }] = await Promise.all([
+    getUserEventSummary(),
+    getUserEventTimelines({ limit: 500 }),
+  ]);
 
   const renderDataCell = (data: unknown) => {
     if (
@@ -38,18 +32,15 @@ export default async function UserAnalyticsPage() {
     );
   };
 
-  const recentWithParsed = recent.map((event) => ({
-    ...event,
-    metadataParsed: safeParse(event.metadata),
-    contextParsed: safeParse((event as { context?: string | null }).context),
-  }));
+  const formatTime = (timestamp: number) =>
+    new Date(timestamp).toLocaleString();
 
   return (
     <div className="flex flex-1 flex-col gap-8 p-6">
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">用户行为</h1>
         <p className="text-sm text-muted-foreground">
-          统计测试按钮、支付按钮等关键操作的触发次数，帮助你了解用户行为。
+          聚合用户完整访问轨迹，方便排查问题与定位错误。游客访问会标记为“游客”。
         </p>
       </div>
 
@@ -78,49 +69,85 @@ export default async function UserAnalyticsPage() {
       </section>
 
       <section className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        <h2 className="text-lg font-semibold">最新记录</h2>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead className="text-left text-muted-foreground">
-              <tr>
-                <th className="py-2 pr-4">时间</th>
-                <th className="py-2 pr-4">事件类型</th>
-                <th className="py-2 pr-4">用户 ID</th>
-                <th className="py-2 pr-4">邮箱</th>
-                <th className="py-2 pr-4">备注</th>
-                <th className="py-2 pr-4">上下文</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentWithParsed.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="py-6 text-center text-muted-foreground"
-                  >
-                    暂无记录
-                  </td>
-                </tr>
-              ) : (
-                recentWithParsed.map((event) => (
-                  <tr key={event.id} className="border-t border-border/60">
-                    <td className="py-2 pr-4">
-                      {new Date(event.createdAt).toLocaleString()}
-                    </td>
-                    <td className="py-2 pr-4 font-medium">{event.eventType}</td>
-                    <td className="py-2 pr-4">{event.userId ?? "—"}</td>
-                    <td className="py-2 pr-4">{event.email ?? "—"}</td>
-                    <td className="py-2 pr-4">
-                      {renderDataCell(event.metadataParsed)}
-                    </td>
-                    <td className="py-2 pr-4">
-                      {renderDataCell(event.contextParsed)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <h2 className="text-lg font-semibold">用户访问轨迹</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          每位用户/游客一条记录，展开可查看从进入到离开的所有事件；错误事件会标红。
+        </p>
+
+        <div className="mt-4 flex flex-col gap-4">
+          {timelines.length === 0 ? (
+            <p className="text-sm text-muted-foreground">暂无记录</p>
+          ) : (
+            timelines.map((user) => (
+              <details
+                key={user.key}
+                className="rounded-lg border border-border bg-background p-4 [&_summary::-webkit-details-marker]:hidden"
+              >
+                <summary className="flex cursor-pointer items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-col">
+                      <span className="font-semibold">
+                        {user.label}
+                      </span>
+                      {user.key !== "guest" && user.key !== user.label && (
+                        <span className="text-xs text-muted-foreground">ID: {user.key}</span>
+                      )}
+                    </div>
+                    {user.isGuest && (
+                      <span className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">
+                        游客
+                      </span>
+                    )}
+                    {user.errorCount > 0 && (
+                      <span className="rounded-full bg-destructive/20 px-2 py-1 text-xs text-destructive">
+                        错误 {user.errorCount}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>事件数：{user.events.length}</span>
+                    <span>进入：{formatTime(user.firstSeen)}</span>
+                    <span>最后：{formatTime(user.lastSeen)}</span>
+                  </div>
+                </summary>
+
+                <div className="mt-4 space-y-3">
+                  {user.events.map((event) => (
+                    <div
+                      key={event.id}
+                      className={`rounded-md border px-3 py-2 text-sm ${
+                        event.isError
+                          ? "border-destructive/60 bg-destructive/10"
+                          : "border-border bg-card/60"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">{event.eventType}</span>
+                        {event.isError && (
+                          <span className="rounded-full bg-destructive/80 px-2 py-0.5 text-[11px] font-semibold text-destructive-foreground">
+                            错误
+                          </span>
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {formatTime(event.createdAt)}
+                        </span>
+                      </div>
+                      <div className="mt-2 grid gap-2 md:grid-cols-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">备注 / metadata</p>
+                          {renderDataCell(event.metadata)}
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">上下文 / context</p>
+                          {renderDataCell(event.context)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ))
+          )}
         </div>
       </section>
     </div>
