@@ -62,6 +62,41 @@ function encodeCookiePayload(data: GuestQuota, secret: string): string {
 export async function POST(req: Request) {
   const headers = await nextHeaders();
   const cookies = await nextCookies();
+  const wantsJson =
+    new URL(req.url).searchParams.get("format") === "json" ||
+    (req.headers.get("accept") ?? "").includes("application/json");
+
+  const origin = req.headers.get("origin");
+
+  const corsHeaders = new Headers();
+  corsHeaders.set("Access-Control-Allow-Headers", "Content-Type, Cookie, Authorization");
+  corsHeaders.set("Access-Control-Allow-Methods", "POST,OPTIONS");
+  // Always echo requesting origin; extensions need explicit origin (no *)
+  if (origin) {
+    corsHeaders.set("Access-Control-Allow-Origin", origin);
+    corsHeaders.set("Access-Control-Allow-Credentials", "true");
+    corsHeaders.set("Vary", "Origin");
+  } else {
+    corsHeaders.set("Access-Control-Allow-Origin", "*");
+  }
+
+  const respond = (
+    payload: Record<string, unknown>,
+    redirectPath = "/",
+    status = 302,
+  ) => {
+    if (wantsJson) {
+      return NextResponse.json(payload, { status: 200, headers: corsHeaders });
+    }
+    return NextResponse.redirect(new URL(redirectPath, req.url), {
+      status,
+      headers: corsHeaders,
+    });
+  };
+
+  if (req.method === "OPTIONS") {
+    return new NextResponse(null, { status: 204, headers: corsHeaders });
+  }
 
   const settings = await getSystemSettings();
   const session = await getSessionFromCookie();
@@ -76,7 +111,7 @@ export async function POST(req: Request) {
       email: session?.user?.email ?? null,
       metadata: { outcome: "free_mode", cost },
     });
-    return NextResponse.redirect(new URL("/?test=ok&mode=free", req.url), { status: 302 });
+    return respond({ status: "ok", mode: "free", cost }, "/?test=ok&mode=free");
   }
 
   if (session?.user?.id) {
@@ -90,9 +125,10 @@ export async function POST(req: Request) {
         email,
         metadata: { outcome: "unlimited", cost },
       });
-      return NextResponse.redirect(new URL("/?test=ok&mode=unlimited", req.url), {
-        status: 302,
-      });
+      return respond(
+        { status: "ok", mode: "unlimited", cost },
+        "/?test=ok&mode=unlimited",
+      );
     }
 
     const result = await updateUserCredits(userId, -cost);
@@ -114,20 +150,18 @@ export async function POST(req: Request) {
     });
 
     if (outcome === "success" || outcome === "unlimited") {
-      return NextResponse.redirect(new URL("/?test=ok", req.url), { status: 302 });
+      return respond({ status: "ok", cost }, "/?test=ok");
     }
 
     if (outcome === "insufficient") {
-      return NextResponse.redirect(new URL("/?test=insufficient", req.url), {
-        status: 302,
-      });
+      return respond({ status: "insufficient", cost }, "/?test=insufficient");
     }
 
-    return NextResponse.redirect(new URL("/?test=insufficient", req.url), { status: 302 });
+    return respond({ status: "failed", cost }, "/?test=insufficient");
   }
 
   if (!settings.guestDailyFreeEnabled) {
-    return NextResponse.redirect(new URL("/sign-in?next=/", req.url), { status: 302 });
+    return respond({ status: "auth_required" }, "/sign-in?next=/");
   }
 
   const day = dayKeyUTC();
@@ -226,7 +260,10 @@ export async function POST(req: Request) {
         path: "/",
         maxAge: 60 * 60 * 24,
       });
-      return NextResponse.redirect(new URL("/?test=rate_limited", req.url), { status: 302 });
+      return respond(
+        { status: "rate_limited_ip_changes", cost, remaining: quota.remaining },
+        "/?test=rate_limited",
+      );
     }
   }
 
@@ -240,7 +277,10 @@ export async function POST(req: Request) {
 
   if (Number(ipUsage?.totalUsed ?? 0) >= ipDailyCap) {
     await logGuestEvent("rate_limited_ip_total", { ipUsage: Number(ipUsage?.totalUsed ?? 0) });
-    return NextResponse.redirect(new URL("/?test=rate_limited_ip", req.url), { status: 302 });
+    return respond(
+      { status: "rate_limited_ip_total", cost, ipUsage: Number(ipUsage?.totalUsed ?? 0) },
+      "/?test=rate_limited_ip",
+    );
   }
 
   if (quota.used >= deviceDailyLimit) {
@@ -251,7 +291,10 @@ export async function POST(req: Request) {
       path: "/",
       maxAge: 60 * 60 * 24,
     });
-    return NextResponse.redirect(new URL("/?test=rate_limited", req.url), { status: 302 });
+    return respond(
+      { status: "rate_limited_device", cost, used: quota.used },
+      "/?test=rate_limited",
+    );
   }
 
   if (quota.remaining < cost) {
@@ -262,7 +305,10 @@ export async function POST(req: Request) {
       path: "/",
       maxAge: 60 * 60 * 24,
     });
-    return NextResponse.redirect(new URL("/?test=guest_no_quota", req.url), { status: 302 });
+    return respond(
+      { status: "guest_no_quota", cost, remaining: quota.remaining },
+      "/?test=guest_no_quota",
+    );
   }
 
   quota.remaining -= cost;
@@ -286,11 +332,8 @@ export async function POST(req: Request) {
 
   await logGuestEvent("success", { remaining: quota.remaining });
 
-  return NextResponse.redirect(
-    new URL(`/?test=guest_ok&remain=${quota.remaining}`, req.url),
-    { status: 302 },
+  return respond(
+    { status: "guest_ok", remaining: quota.remaining, cost },
+    `/?test=guest_ok&remain=${quota.remaining}`,
   );
 }
-
-
-

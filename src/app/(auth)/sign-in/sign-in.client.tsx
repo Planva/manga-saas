@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { toast } from "sonner";
+import { useServerAction } from "zsa-react";
 
 import { signInAction } from "./sign-in.actions";
 import { type SignInSchema, signInSchema } from "@/schemas/signin.schema";
@@ -24,50 +25,19 @@ type Props = { redirectPath: string };
 export default function SignInClient({ redirectPath }: Props) {
   const router = useRouter();
   const form = useForm<SignInSchema>({ resolver: zodResolver(signInSchema) });
-  const [pending, setPending] = React.useState(false);
+
+  const { execute: signIn, isPending } = useServerAction(signInAction, {
+    onError: (error) => {
+      toast.error(error.err?.message || "Invalid email or password");
+    },
+    onSuccess: () => {
+      router.replace(redirectPath);
+      router.refresh();
+    },
+  });
 
   const onSubmit = async (values: SignInSchema) => {
-    setPending(true);
-    try {
-      const res = await signInAction(values);
-
-      // —— 统一“成功/失败”判定 —— //
-      // 只在“明确失败信号”时才算失败：
-      //   { ok: false } 或 { success: false } 或 显式提供 error/message
-      const explicitFail =
-        res &&
-        typeof res === "object" &&
-        (
-          ("ok" in res && res.ok === false) ||
-          ("success" in res && res.success === false) ||
-          ("error" in res && Boolean(res.error)) ||
-          ("message" in res && res.message === "Invalid credentials")
-        );
-
-      if (!explicitFail) {
-        // 其它情况一律按“成功”处理（包括返回 void / null / {ok:true} / {success:true} / 直接在 server action 里已设置 cookie）
-        router.replace(redirectPath);
-        router.refresh();
-        // 成功提示（可留可去）
-        // toast.success("Signed in");
-        return;
-      }
-
-      const errMessage =
-        (typeof res === "object" && res && "message" in res && res.message) ||
-        (typeof res === "object" && res && "error" in res && res.error) ||
-        "Sign in failed";
-      toast.error(String(errMessage));
-    } catch (error: unknown) {
-      // server action 里如果调用了 redirect，会抛出 NEXT_REDIRECT，不能当失败
-      const digest = typeof error === "object" && error && "digest" in error ? (error as { digest?: unknown }).digest : undefined;
-      if (digest && String(digest).startsWith("NEXT_REDIRECT")) {
-        return;
-      }
-      toast.error("Sign in failed");
-    } finally {
-      setPending(false);
-    }
+    await signIn(values);
   };
 
   return (
@@ -122,8 +92,8 @@ export default function SignInClient({ redirectPath }: Props) {
               )}
             />
 
-            <Button type="submit" className="w-full" disabled={pending} aria-busy={pending}>
-              {pending ? "Signing in..." : "Sign in"}
+            <Button type="submit" className="w-full" disabled={isPending} aria-busy={isPending}>
+              {isPending ? "Signing in..." : "Sign in"}
             </Button>
           </form>
         </Form>
