@@ -1,5 +1,3 @@
-"use server";
-
 import { NextResponse } from "next/server";
 import { getSessionFromCookie } from "@/utils/auth";
 import { getSystemSettings } from "@/utils/system-settings";

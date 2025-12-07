@@ -50,19 +50,11 @@ export async function checkRateLimit({
   key: string;
   options: RateLimitOptions;
 }): Promise<RateLimitResult> {
-  // In production the Worker must have NEXT_INC_CACHE_KV bound; if it is not,
-  // allow the request rather than hard-crashing the route handler.
   const { env } = getCloudflareContext();
   const now = Math.floor(Date.now() / 1000);
 
   if (!env?.NEXT_INC_CACHE_KV) {
-    console.error("Rate limit skipped: NEXT_INC_CACHE_KV binding missing");
-    return {
-      success: true,
-      remaining: options.limit,
-      reset: now + options.windowInSeconds,
-      limit: options.limit,
-    };
+    throw new Error("Can't connect to KV store");
   }
 
   // Normalize the key if it looks like an IP address
@@ -72,40 +64,30 @@ export async function checkRateLimit({
     now / options.windowInSeconds
   )}`;
 
-  try {
-    // Get the current count from KV
-    const currentCount = parseInt((await env.NEXT_INC_CACHE_KV.get(windowKey)) || "0");
-    const reset = (Math.floor(now / options.windowInSeconds) + 1) * options.windowInSeconds;
+  // Get the current count from KV
+  const currentCount = parseInt((await env.NEXT_INC_CACHE_KV.get(windowKey)) || "0");
+  const reset = (Math.floor(now / options.windowInSeconds) + 1) * options.windowInSeconds;
 
-    if (currentCount >= options.limit) {
-      return {
-        success: false,
-        remaining: 0,
-        reset,
-        limit: options.limit,
-      };
-    }
-
-    // Increment the counter
-    await env.NEXT_INC_CACHE_KV.put(windowKey, (currentCount + 1).toString(), {
-      expirationTtl: options.windowInSeconds,
-    });
-
+  if (currentCount >= options.limit) {
     return {
-      success: true,
-      remaining: options.limit - (currentCount + 1),
+      success: false,
+      remaining: 0,
       reset,
       limit: options.limit,
     };
-  } catch (error) {
-    console.error("Rate limit skipped due to KV error", error);
-    return {
-      success: true,
-      remaining: options.limit,
-      reset: now + options.windowInSeconds,
-      limit: options.limit,
-    };
   }
+
+  // Increment the counter
+  await env.NEXT_INC_CACHE_KV.put(windowKey, (currentCount + 1).toString(), {
+    expirationTtl: options.windowInSeconds,
+  });
+
+  return {
+    success: true,
+    remaining: options.limit - (currentCount + 1),
+    reset,
+    limit: options.limit,
+  };
 }
 
 // Helper function to get rate limit headers
