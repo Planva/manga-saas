@@ -29,9 +29,11 @@ export const updateSystemSettingsAction = createServerAction()
 
     try {
       const current = await getSystemSettings();
+      const { stripePrices, ...rest } = current;
+      void stripePrices;
 
       const settings = await updateSystemSettings({
-        stripePrices: current.stripePrices,
+        ...rest,
         enablePacks: input.enablePacks,
         enableSubscriptions: input.enableSubscriptions,
         subsUnlimitedMode: input.subsUnlimitedMode,

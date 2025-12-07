@@ -173,7 +173,7 @@ export async function POST(req: Request) {
         const priceId = inv.lines.data[0]?.price?.id as string | undefined;
         const credits = priceId ? priceToCredits[priceId] ?? 0 : 0;
 
-        let userId =
+        const userId =
           (await getUserIdByCustomer(
             typeof inv.customer === "string" ? inv.customer : inv.customer?.id,
           )) ||

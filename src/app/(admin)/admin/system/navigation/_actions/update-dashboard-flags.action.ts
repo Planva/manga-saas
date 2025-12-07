@@ -22,9 +22,11 @@ export const updateDashboardFlagsAction = createServerAction()
 
     try {
       const current = await getSystemSettings();
+      const { stripePrices, ...rest } = current;
+      void stripePrices;
 
       const updated = await updateSystemSettings({
-        ...current,
+        ...rest,
         dashboard: {
           home: input.home,
           teams: input.teams,

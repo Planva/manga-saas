@@ -25,8 +25,8 @@ async function getOrCreateCustomerId(opts: { userId: string; email: string }) {
     .where(eq(userTable.id, opts.userId))
     .get();
 
-  if ((row as any)?.stripeCustomerId) {
-    return (row as any).stripeCustomerId as string;
+  if (row?.stripeCustomerId) {
+    return row.stripeCustomerId;
   }
 
   // 用 email 在 Stripe 里查（若该用户之前通过 checkout 创建过 customer）

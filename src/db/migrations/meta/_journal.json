@@ -64,6 +64,27 @@
       "when": 1747391678728,
       "tag": "0008_add_multi_tenancy",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1765104831405,
+      "tag": "0009_remove_admin_price_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1765104831405,
+      "tag": "0010_add_blog_enabled",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1765109932555,
+      "tag": "0011_add_agentic_banner_enabled",
+      "breakpoints": true
     }
   ]
 }

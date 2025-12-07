@@ -377,11 +377,6 @@ export type AdminBannerSettings = InferSelectModel<typeof adminBannerSettingsTab
 export const adminSystemSettingsTable = sqliteTable("admin_system_settings", {
   ...commonColumns,
   id: text().primaryKey().$defaultFn(() => "default").notNull(),
-  stripePackStarter: text(),
-  stripePackStandard: text(),
-  stripePackBulk: text(),
-  stripeSubMonthly: text(),
-  stripeSubYearly: text(),
   enablePacks: integer().default(1).notNull(),
   enableSubscriptions: integer().default(1).notNull(),
   subsUnlimitedMode: text().default("off").notNull(),
@@ -395,6 +390,8 @@ export const adminSystemSettingsTable = sqliteTable("admin_system_settings", {
   guestIpDailyLimit: integer().default(10).notNull(),
   guestDeviceDailyLimit: integer().default(100).notNull(),
   guestIpDailyCap: integer().default(20).notNull(),
+  featureAgenticBannerEnabled: integer().default(1).notNull(),
+  featureBlogEnabled: integer().default(1).notNull(),
   featureDashboardHome: integer().default(1).notNull(),
   featureDashboardTeams: integer().default(1).notNull(),
   featureDashboardMarketplace: integer().default(1).notNull(),
@@ -442,6 +439,4 @@ export const stripeCustomerMapTable = sqliteTable("stripe_customer_map", {
 });
 
 // （可选）relations 如需
-export const stripeCustomerMapRelations = relations(stripeCustomerMapTable, ({ one }) => ({
-  // user: one(userTable, { fields: [stripeCustomerMapTable.userId], references: [userTable.id] })
-}));
+export const stripeCustomerMapRelations = relations(stripeCustomerMapTable, () => ({}));

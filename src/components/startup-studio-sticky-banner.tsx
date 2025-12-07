@@ -1,66 +1,35 @@
-'use client';
-
-import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
-import { cn } from "@/lib/utils";
 import AgenticDevStudioLogo from "./agenticdev-studio-logo";
 import { ChevronLeft, X } from "lucide-react";
+import { AgenticDevStudioStickyBannerClient } from "./startup-studio-sticky-banner.client";
 
-const STORAGE_KEY = 'agenticdev-studio-banner-collapsed';
+const STORAGE_KEY = "agenticdev-studio-banner-collapsed";
 
 export function AgenticDevStudioStickyBanner() {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  useEffect(() => {
-    // Get initial state from localStorage
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored !== null) {
-      setIsCollapsed(JSON.parse(stored));
-    }
-    setIsHydrated(true);
-  }, []);
-
-  const toggleCollapsed = (value: boolean) => {
-    setIsCollapsed(value);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-  };
-
-  if (!isHydrated) return null; // Prevent flash of content
-
   return (
-    <div
-      className={cn(
-        "fixed bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-4 z-[100] print:hidden",
-        isCollapsed && "pointer-events-none" // Make entire container click-through when collapsed
-      )}
-    >
+    <>
       <div
-        className={cn(
-          "transition-all duration-300 ease-in-out transform",
-          isCollapsed ? "translate-x-[calc(100%+1rem)] md:translate-x-[calc(100%+1rem)]" : "translate-x-0"
-        )}
+        data-agenticdev-sticky
+        data-ready="false"
+        data-collapsed="false"
+        className="group fixed bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-4 z-[100] print:hidden transition-opacity duration-200 data-[ready=false]:opacity-0 data-[collapsed=true]:left-auto data-[collapsed=true]:right-4 data-[collapsed=true]:translate-x-0"
       >
-        <div className="relative flex items-center w-[90vw] md:max-w-[400px]">
+        <div className="relative flex items-center w-[90vw] md:max-w-[420px]">
           <Button
             variant="outline"
             size="icon"
-            className={cn(
-              "absolute left-0 h-8 w-8 rounded-full shadow-lg -translate-x-full",
-              "bg-background hover:bg-background",
-              "border-2 hover:border-border",
-              isCollapsed ? "opacity-100 pointer-events-auto" : "opacity-0" // Ensure button is clickable when collapsed
-            )}
-            onClick={() => toggleCollapsed(false)}
+            data-expand-btn
+            className="absolute top-1/2 -translate-y-1/2 right-[-0.85rem] md:right-[-1.15rem] h-9 w-9 rounded-full shadow-lg bg-background hover:bg-background border-2 hover:border-border opacity-0 pointer-events-none group-data-[collapsed=true]:opacity-100 group-data-[collapsed=true]:pointer-events-auto z-[2]"
+            aria-label="Expand AgenticDev banner"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
 
-          <div className="bg-gray-100 dark:bg-background rounded-lg shadow-xl border-2 relative">
+          <div className="bg-gray-100 dark:bg-background rounded-lg shadow-xl border-2 relative transition-transform duration-300 ease-in-out group-data-[collapsed=true]:translate-x-[calc(100%+3rem)]" data-container>
             <Button
               size="icon"
+              data-collapse-btn
               className="h-6 w-6 absolute -top-3 -right-3 rounded-full shadow-md border border-border"
-              onClick={() => toggleCollapsed(true)}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -76,8 +45,8 @@ export function AgenticDevStudioStickyBanner() {
                   <span className="whitespace-nowrap">AgenticDev</span>
                 </div>
 
-                <div className="text-tiny text-muted-foreground mt-3">
-                Transform operations with AI solutions that adapt to your actual needs—automating routine tasks or solving complex challenges through customized systems. Focus on growth while we handle the tech specifics that matter most to your business.
+                <div className="text-tiny text-muted-foreground mt-3 text-center">
+                  Transform operations with AI solutions that adapt to your actual needs—automating routine tasks or solving complex challenges through customized systems. Focus on growth while we handle the tech specifics that matter most to your business.
                 </div>
               </a>
               <Button size="sm" className="mt-4" asChild>
@@ -87,6 +56,7 @@ export function AgenticDevStudioStickyBanner() {
           </div>
         </div>
       </div>
-    </div>
+      <AgenticDevStudioStickyBannerClient storageKey={STORAGE_KEY} />
+    </>
   );
 }

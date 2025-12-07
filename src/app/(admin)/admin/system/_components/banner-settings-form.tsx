@@ -111,9 +111,9 @@ export function BannerSettingsForm({ initialSettings }: BannerSettingsFormProps)
   return (
     <div className="flex max-w-2xl flex-col gap-6 rounded-xl border border-border bg-card p-6 shadow-sm">
       <div>
-        <h2 className="text-xl font-semibold">Announcement Banner</h2>
+        <h2 className="text-xl font-semibold">设置</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Configure the scrolling message that appears at the top of the admin panel.
+          管理公告横幅、轮播内容与高度。
         </p>
       </div>
 

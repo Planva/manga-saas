@@ -98,9 +98,9 @@ export async function POST(req: Request) {
     const result = await updateUserCredits(userId, -cost);
 
     let outcome: "success" | "insufficient" | "failed" | "unlimited";
-    if ((result as any)?.ok) {
+    if (result && typeof result === "object" && "ok" in result && result.ok) {
       outcome = "success";
-    } else if ((result as any)?.error === "INSUFFICIENT_CREDITS") {
+    } else if (result && typeof result === "object" && "error" in result && result.error === "INSUFFICIENT_CREDITS") {
       outcome = "insufficient";
     } else {
       outcome = "failed";
@@ -291,7 +291,6 @@ export async function POST(req: Request) {
     { status: 302 },
   );
 }
-
 
 
 

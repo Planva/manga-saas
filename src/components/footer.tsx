@@ -2,13 +2,11 @@ import Link from "next/link";
 import {
   SiX as XIcon,
   SiGithub as GithubIcon,
-  SiFacebook as FacebookIcon,
 } from "@icons-pack/react-simple-icons";
 import { Mail } from "lucide-react";
 import ThemeSwitch from "@/components/theme-switch";
 import { GITHUB_REPO_URL, SITE_NAME } from "@/constants";
 import { Button } from "./ui/button";
-import AgenticDevStudioLogo from "./agenticdev-studio-logo";
 import { getGithubStars } from "@/utils/stats";
 import { Suspense } from "react";
 

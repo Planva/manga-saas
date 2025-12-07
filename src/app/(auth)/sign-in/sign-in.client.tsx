@@ -38,10 +38,10 @@ export default function SignInClient({ redirectPath }: Props) {
         res &&
         typeof res === "object" &&
         (
-          (Object.prototype.hasOwnProperty.call(res, "ok") && (res as any).ok === false) ||
-          (Object.prototype.hasOwnProperty.call(res, "success") && (res as any).success === false) ||
-          (res as any).error ||
-          (res as any).message === "Invalid credentials"
+          ("ok" in res && res.ok === false) ||
+          ("success" in res && res.success === false) ||
+          ("error" in res && Boolean(res.error)) ||
+          ("message" in res && res.message === "Invalid credentials")
         );
 
       if (!explicitFail) {
@@ -53,10 +53,15 @@ export default function SignInClient({ redirectPath }: Props) {
         return;
       }
 
-      toast.error((res as any)?.message || (res as any)?.error || "Sign in failed");
-    } catch (error: any) {
+      const errMessage =
+        (typeof res === "object" && res && "message" in res && res.message) ||
+        (typeof res === "object" && res && "error" in res && res.error) ||
+        "Sign in failed";
+      toast.error(String(errMessage));
+    } catch (error: unknown) {
       // server action 里如果调用了 redirect，会抛出 NEXT_REDIRECT，不能当失败
-      if (error?.digest && String(error.digest).startsWith("NEXT_REDIRECT")) {
+      const digest = typeof error === "object" && error && "digest" in error ? (error as { digest?: unknown }).digest : undefined;
+      if (digest && String(digest).startsWith("NEXT_REDIRECT")) {
         return;
       }
       toast.error("Sign in failed");

@@ -44,6 +44,11 @@ const normalizeRoute = (value: unknown, fallback = "/dashboard/billing") => {
   return raw.startsWith("/") ? raw : `/${raw.replace(/^\/+/, "")}`;
 };
 
+const normalizeFlag = (value: unknown, fallback: boolean): boolean => {
+  if (value === undefined || value === null) return fallback;
+  return boolFromString(value, fallback);
+};
+
 const normalizeMode = (value: unknown): "off" | "monthly" | "yearly" | "all" => {
   const v = String(value ?? "off").toLowerCase();
   if (v === "monthly" || v === "yearly" || v === "all") {
@@ -65,6 +70,10 @@ const envFallback = {
     process.env.FEATURE_SUBS_UNLIMITED_ALSO_GRANT_CREDITS,
     false,
   ),
+  featureAgenticBannerEnabled: boolFromString(
+    process.env.FEATURE_AGENTIC_BANNER_ENABLED,
+    true,
+  ),
   dailyFreeCreditsEnabled: boolFromString(
     process.env.FEATURE_DAILY_FREE_CREDITS_ENABLED,
     true,
@@ -80,6 +89,7 @@ const envFallback = {
   guestIpDailyLimit: intFrom(process.env.GUEST_IP_DAILY_LIMIT, 10, { min: 0 }),
   guestDeviceDailyLimit: intFrom(process.env.GUEST_DEVICE_DAILY_LIMIT, 100, { min: 0 }),
   guestIpDailyCap: intFrom(process.env.GUEST_IP_DAILY_CAP, 20, { min: 0 }),
+  featureBlogEnabled: boolFromString(process.env.FEATURE_BLOG_ENABLED, true),
   featureDashboardHome: boolFromString(process.env.FEATURE_DASHBOARD_HOME, true),
   featureDashboardTeams: boolFromString(process.env.FEATURE_DASHBOARD_TEAMS, true),
   featureDashboardMarketplace: boolFromString(
@@ -112,6 +122,8 @@ export type SystemSettings = {
   guestIpDailyLimit: number;
   guestDeviceDailyLimit: number;
   guestIpDailyCap: number;
+  agenticBannerEnabled: boolean;
+  blogEnabled: boolean;
   dashboard: {
     home: boolean;
     teams: boolean;
@@ -145,6 +157,8 @@ const normalizeRecord = (record?: AdminSystemSettings | null): SystemSettings =>
       guestIpDailyLimit: envFallback.guestIpDailyLimit,
       guestDeviceDailyLimit: envFallback.guestDeviceDailyLimit,
       guestIpDailyCap: envFallback.guestIpDailyCap,
+      agenticBannerEnabled: envFallback.featureAgenticBannerEnabled,
+      blogEnabled: envFallback.featureBlogEnabled,
       dashboard: {
         home: envFallback.featureDashboardHome,
         teams: envFallback.featureDashboardTeams,
@@ -158,11 +172,11 @@ const normalizeRecord = (record?: AdminSystemSettings | null): SystemSettings =>
 
   return {
     stripePrices: {
-      packStarter: record.stripePackStarter ?? envFallback.stripePackStarter,
-      packStandard: record.stripePackStandard ?? envFallback.stripePackStandard,
-      packBulk: record.stripePackBulk ?? envFallback.stripePackBulk,
-      subMonthly: record.stripeSubMonthly ?? envFallback.stripeSubMonthly,
-      subYearly: record.stripeSubYearly ?? envFallback.stripeSubYearly,
+      packStarter: envFallback.stripePackStarter,
+      packStandard: envFallback.stripePackStandard,
+      packBulk: envFallback.stripePackBulk,
+      subMonthly: envFallback.stripeSubMonthly,
+      subYearly: envFallback.stripeSubYearly,
     },
     enablePacks: boolFromString(record.enablePacks, envFallback.enablePacks),
     enableSubscriptions: boolFromString(
@@ -208,6 +222,11 @@ const normalizeRecord = (record?: AdminSystemSettings | null): SystemSettings =>
     guestIpDailyCap: intFrom(record.guestIpDailyCap, envFallback.guestIpDailyCap, {
       min: 0,
     }),
+    agenticBannerEnabled: normalizeFlag(
+      record.featureAgenticBannerEnabled,
+      envFallback.featureAgenticBannerEnabled,
+    ),
+    blogEnabled: normalizeFlag(record.featureBlogEnabled, envFallback.featureBlogEnabled),
     dashboard: {
       home: boolFromString(record.featureDashboardHome, envFallback.featureDashboardHome),
       teams: boolFromString(record.featureDashboardTeams, envFallback.featureDashboardTeams),
@@ -242,39 +261,7 @@ export async function getSystemSettings(): Promise<SystemSettings> {
   return normalizeRecord(record ?? undefined);
 }
 
-type UpdateSystemSettingsParams = {
-  stripePrices: {
-    packStarter: string | null;
-    packStandard: string | null;
-    packBulk: string | null;
-    subMonthly: string | null;
-    subYearly: string | null;
-  };
-  enablePacks: boolean;
-  enableSubscriptions: boolean;
-  subsUnlimitedMode: "off" | "monthly" | "yearly" | "all";
-  subsUnlimitedAlsoGrantCredits: boolean;
-  dailyFreeCreditsEnabled: boolean;
-  dailyFreeCredits: number;
-  dailyFreeReset: boolean;
-  perUseCreditCost: number;
-  guestDailyFreeEnabled: boolean;
-  guestDailyFreeCredits: number;
-  guestIpDailyLimit: number;
-  guestDeviceDailyLimit: number;
-  guestIpDailyCap: number;
-  dashboard: {
-    home: boolean;
-    teams: boolean;
-    marketplace: boolean;
-    billing: boolean;
-    settings: boolean;
-    homeRoute: string;
-  };
-};
-
-const emptyToNull = (value: string | null | undefined) =>
-  value && value.trim().length > 0 ? value.trim() : null;
+type UpdateSystemSettingsParams = Omit<SystemSettings, "stripePrices">;
 
 export async function updateSystemSettings(params: UpdateSystemSettingsParams): Promise<SystemSettings> {
   const db = getDB();
@@ -282,11 +269,6 @@ export async function updateSystemSettings(params: UpdateSystemSettingsParams): 
   await db
     .update(adminSystemSettingsTable)
     .set({
-      stripePackStarter: emptyToNull(params.stripePrices.packStarter),
-      stripePackStandard: emptyToNull(params.stripePrices.packStandard),
-      stripePackBulk: emptyToNull(params.stripePrices.packBulk),
-      stripeSubMonthly: emptyToNull(params.stripePrices.subMonthly),
-      stripeSubYearly: emptyToNull(params.stripePrices.subYearly),
       enablePacks: params.enablePacks ? 1 : 0,
       enableSubscriptions: params.enableSubscriptions ? 1 : 0,
       subsUnlimitedMode: params.subsUnlimitedMode,
@@ -300,6 +282,8 @@ export async function updateSystemSettings(params: UpdateSystemSettingsParams): 
       guestIpDailyLimit: Math.max(0, Math.floor(params.guestIpDailyLimit)),
       guestDeviceDailyLimit: Math.max(0, Math.floor(params.guestDeviceDailyLimit)),
       guestIpDailyCap: Math.max(0, Math.floor(params.guestIpDailyCap)),
+      featureAgenticBannerEnabled: params.agenticBannerEnabled ? 1 : 0,
+      featureBlogEnabled: params.blogEnabled ? 1 : 0,
       featureDashboardHome: params.dashboard.home ? 1 : 0,
       featureDashboardTeams: params.dashboard.teams ? 1 : 0,
       featureDashboardMarketplace: params.dashboard.marketplace ? 1 : 0,

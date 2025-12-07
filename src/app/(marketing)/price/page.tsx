@@ -43,11 +43,10 @@ function Card(props: {
   price: string;
   subtitle: string;
   highlight?: boolean;
-  actionLabel: string;
   kind: "pack" | "subscription";
   priceId: string;
 }) {
-  const { title, price, subtitle, highlight, actionLabel, kind, priceId } = props;
+  const { title, price, subtitle, highlight, kind, priceId } = props;
 
   return (
     <div
@@ -152,7 +151,6 @@ export default async function Page({
               title="Starter Pack"
               price="$6.90"
               subtitle="≈300 translations"
-              actionLabel="Get Started"
               kind="pack"
               priceId={packPriceIds.starter}
             />
@@ -163,7 +161,6 @@ export default async function Page({
               price="$19.90"
               subtitle="≈1,000 translations"
               highlight
-              actionLabel="Get Started"
               kind="pack"
               priceId={packPriceIds.standard}
             />
@@ -173,7 +170,6 @@ export default async function Page({
               title="Bulk Pack"
               price="$24.90"
               subtitle="≈1,200 translations"
-              actionLabel="Get Started"
               kind="pack"
               priceId={packPriceIds.bulk}
             />
@@ -181,7 +177,7 @@ export default async function Page({
 
           {!Object.values(packPriceIds).some(Boolean) && (
             <div className="rounded-xl border border-dashed border-border bg-muted/40 p-6 text-sm text-muted-foreground md:col-span-3">
-              No pack products are configured. Add Stripe price IDs in the admin panel to offer one-time purchases.
+              No pack products are configured. Add Stripe price IDs to your .env to offer one-time purchases.
             </div>
           )}
         </div>
@@ -194,7 +190,6 @@ export default async function Page({
               title="Monthly"
               price="$19.90"
               subtitle="1,200 credits / month · rollover"
-              actionLabel="Subscribe Monthly"
               kind="subscription"
               priceId={subsPriceIds.monthly}
             />
@@ -205,7 +200,6 @@ export default async function Page({
               price="$199.90"
               subtitle="16,000 credits / year · rollover"
               highlight
-              actionLabel="Subscribe Yearly"
               kind="subscription"
               priceId={subsPriceIds.yearly}
             />
@@ -213,7 +207,7 @@ export default async function Page({
 
           {!Object.values(subsPriceIds).some(Boolean) && (
             <div className="rounded-xl border border-dashed border-border bg-muted/40 p-6 text-sm text-muted-foreground md:col-span-2">
-              No subscription products are configured. Provide Stripe subscription price IDs in the admin panel to enable recurring plans.
+              No subscription products are configured. Provide Stripe subscription price IDs in your .env to enable recurring plans.
             </div>
           )}
         </div>
@@ -221,7 +215,7 @@ export default async function Page({
 
       {!hasPackProducts && !hasSubscriptionProducts && (
         <div className="mt-10 rounded-2xl border border-dashed border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
-          Pricing is currently hidden because no Stripe price IDs are configured. Update the values in the admin credit settings page to publish plans.
+          Pricing is currently hidden because no Stripe price IDs are configured. Set the Stripe price IDs in your .env file to publish plans.
         </div>
       )}
 

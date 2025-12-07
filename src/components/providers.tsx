@@ -61,24 +61,49 @@ export function ThemeProvider({
   const windowRef = useRef(typeof window === 'undefined' ? null : window)
 
   const doFetchSession = useCallback(async () => {
+    if (typeof window === 'undefined') return
+
     try {
       refetchSession() // Set loading state before fetch
-      const response = await fetch('/api/get-session')
+
+      const response = await fetch(`${window.location.origin}/api/get-session`, {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+      })
+
+      if (!response.ok) {
+        console.error('Failed to fetch session:', response.status, response.statusText)
+
+        if ([401, 403, 404].includes(response.status)) {
+          clearSession()
+        } else {
+          useSessionStore.setState({ isLoading: false })
+        }
+        return
+      }
+
       const sessionWithConfig = await response.json() as {
         session: SessionValidationResult
         config: Awaited<ReturnType<typeof getConfig>>
       }
 
-      setConfig(sessionWithConfig?.config)
+      if (sessionWithConfig?.config) {
+        setConfig(sessionWithConfig.config)
+      }
 
       if (sessionWithConfig?.session) {
-        setSession(sessionWithConfig?.session)
+        setSession(sessionWithConfig.session)
       } else {
         clearSession()
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return
+      }
+
       console.error('Failed to fetch session:', error)
-      clearSession()
+      useSessionStore.setState({ isLoading: false })
     }
   }, [setSession, setConfig, clearSession, refetchSession])
 

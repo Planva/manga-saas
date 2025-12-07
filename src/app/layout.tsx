@@ -7,10 +7,11 @@ import { ThemeProvider } from "@/components/providers";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NextTopLoader from 'nextjs-toploader'
-import { SITE_NAME, SITE_DESCRIPTION, SITE_URL } from "@/constants";
-import { AgenticDevStudioStickyBanner } from "@/components/startup-studio-sticky-banner";
+import { SITE_NAME, SITE_DESCRIPTION } from "@/constants";
 import { getAdminBannerSettings } from "@/utils/admin-banner-settings";
 import { AnnouncementBanner } from "@/components/announcement-banner";
+import { AgenticDevStudioStickyBanner } from "@/components/startup-studio-sticky-banner";
+import { getSystemSettings } from "@/utils/system-settings";
 export const dynamic = "force-dynamic";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -64,11 +65,17 @@ export default async function BaseLayout({
     messages: [] as string[],
     itemsPerCycle: 1,
   };
+  let systemSettings = null;
 
   try {
     bannerSettings = await getAdminBannerSettings();
   } catch (error) {
     console.error("Failed to load banner settings", error);
+  }
+  try {
+    systemSettings = await getSystemSettings();
+  } catch (error) {
+    console.error("Failed to load system settings", error);
   }
 
   return (
@@ -93,7 +100,7 @@ export default async function BaseLayout({
           </TooltipProvider>
         </ThemeProvider>
         <Toaster richColors closeButton position="top-right" expand duration={7000} />
-        <AgenticDevStudioStickyBanner />
+        {systemSettings?.agenticBannerEnabled !== false && <AgenticDevStudioStickyBanner />}
       </body>
     </html>
   );

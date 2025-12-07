@@ -36,7 +36,7 @@ type DashboardFeatureFlags = {
 export type NavItem = {
   title: string;
   url: Route;
-  icon?: ComponentType<any>;
+  icon?: ComponentType<unknown>;
 };
 
 export type NavMainItem = NavItem & {
@@ -50,7 +50,7 @@ type Props = React.ComponentProps<typeof Sidebar> & {
 
 type TeamOption = {
   name: string;
-  logo: ComponentType<any>;
+  logo: ComponentType<unknown>;
   plan: string;
 };
 

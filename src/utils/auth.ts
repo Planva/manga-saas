@@ -65,10 +65,6 @@ async function generateSessionId(token: string): Promise<string> {
   return encodeHexLowerCase(new Uint8Array(hashBuffer));
 }
 
-function encodeSessionCookie(userId: string, token: string): string {
-  return `${userId}:${token}`;
-}
-
 function decodeSessionCookie(cookie: string): { userId: string; token: string } | null {
   const parts = cookie.split(':');
   if (parts.length !== 2) return null;
@@ -240,12 +236,6 @@ async function validateSessionToken(token: string, userId: string): Promise<Sess
 
 export async function invalidateSession(sessionId: string, userId: string): Promise<void> {
   await deleteKVSession(sessionId, userId);
-}
-
-interface SetSessionTokenCookieParams {
-  token: string;
-  userId: string;
-  expiresAt: Date;
 }
 
 export async function setSessionTokenCookie({

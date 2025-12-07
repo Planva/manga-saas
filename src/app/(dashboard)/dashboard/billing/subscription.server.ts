@@ -16,7 +16,16 @@ export type UiSubscription =
   | { code: "canceled"; until: Date };
 
 /* -------------------- 小工具：稳健地取一条记录 -------------------- */
-async function getOne<T>(qb: any): Promise<T | undefined> {
+type QueryLike<T> =
+  | {
+      get?: () => Promise<T | undefined>;
+      all?: () => Promise<T[]>;
+      execute?: () => Promise<unknown>;
+    }
+  | null
+  | undefined;
+
+async function getOne<T>(qb: QueryLike<T>): Promise<T | undefined> {
   if (!qb) return undefined;
 
   // 1) .get()
@@ -44,9 +53,9 @@ async function getOne<T>(qb: any): Promise<T | undefined> {
     if (typeof qb.execute === "function") {
       const res = await qb.execute();
       if (Array.isArray(res) && res.length) return res[0] as T;
-      if (res && typeof res === "object" && "rows" in res && Array.isArray((res as any).rows)) {
-        const rows = (res as any).rows;
-        if (rows.length) return rows[0] as T;
+      if (res && typeof res === "object" && "rows" in res) {
+        const rows = (res as { rows?: unknown }).rows;
+        if (Array.isArray(rows) && rows.length) return rows[0] as T;
       }
     }
   } catch {

@@ -46,7 +46,7 @@ const baseAdminNavItems: NavMainItem[] = [
     icon: Settings2,
     items: [
       {
-        title: "Announcement Banner",
+        title: "Settings",
         url: "/admin/system",
       },
       {
