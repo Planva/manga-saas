@@ -76,7 +76,12 @@ export default async function BaseLayout({
   try {
     systemSettings = await getSystemSettings();
   } catch (error) {
-    console.error("Failed to load system settings", error);
+    console.error("Failed to load system settings during build/render", error);
+    // Provide safe fallback values to prevent build failures
+    systemSettings = {
+      agenticBannerEnabled: false,
+      mobileBottomNavEnabled: false,
+    } as any;
   }
 
   return (
