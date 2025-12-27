@@ -63,7 +63,7 @@
     "bindings": [
       {
         "name": "NEXT_CACHE_DO_QUEUE",
-        "class_name": "DOQueueHandler",
+        "class_name": "DOQueueHandler"
       }
     ]
   },
@@ -72,8 +72,8 @@
       "tag": "v1",
       "new_sqlite_classes": [
         "DOQueueHandler"
-      ],
-    },
+      ]
+    }
   ],
   "d1_databases": [
     {
