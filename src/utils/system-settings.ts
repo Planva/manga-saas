@@ -99,6 +99,7 @@ const envFallback = {
   featureDashboardBilling: boolFromString(process.env.FEATURE_DASHBOARD_BILLING, true),
   featureDashboardSettings: boolFromString(process.env.FEATURE_DASHBOARD_SETTINGS, true),
   dashboardHomeRoute: normalizeRoute(process.env.DASHBOARD_HOME_ROUTE),
+  featureMobileBottomNav: boolFromString(process.env.FEATURE_MOBILE_BOTTOM_NAV, false),
 };
 
 export type SystemSettings = {
@@ -132,6 +133,7 @@ export type SystemSettings = {
     settings: boolean;
     homeRoute: string;
   };
+  mobileBottomNavEnabled: boolean;
 };
 
 const normalizeRecord = (record?: AdminSystemSettings | null): SystemSettings => {
@@ -167,6 +169,7 @@ const normalizeRecord = (record?: AdminSystemSettings | null): SystemSettings =>
         settings: envFallback.featureDashboardSettings,
         homeRoute: envFallback.dashboardHomeRoute,
       },
+      mobileBottomNavEnabled: envFallback.featureMobileBottomNav,
     };
   }
 
@@ -247,6 +250,10 @@ const normalizeRecord = (record?: AdminSystemSettings | null): SystemSettings =>
         envFallback.dashboardHomeRoute,
       ),
     },
+    mobileBottomNavEnabled: normalizeFlag(
+      record.featureMobileBottomNav,
+      envFallback.featureMobileBottomNav,
+    ),
   };
 };
 
@@ -265,6 +272,8 @@ type UpdateSystemSettingsParams = Omit<SystemSettings, "stripePrices">;
 
 export async function updateSystemSettings(params: UpdateSystemSettingsParams): Promise<SystemSettings> {
   const db = getDB();
+
+  console.log("[updateSystemSettings] Params:", JSON.stringify(params, null, 2));
 
   await db
     .update(adminSystemSettingsTable)
@@ -290,6 +299,7 @@ export async function updateSystemSettings(params: UpdateSystemSettingsParams): 
       featureDashboardBilling: params.dashboard.billing ? 1 : 0,
       featureDashboardSettings: params.dashboard.settings ? 1 : 0,
       dashboardHomeRoute: normalizeRoute(params.dashboard.homeRoute),
+      featureMobileBottomNav: params.mobileBottomNavEnabled ? 1 : 0,
       updatedAt: new Date(),
     })
     .where(eq(adminSystemSettingsTable.id, DEFAULT_ID));

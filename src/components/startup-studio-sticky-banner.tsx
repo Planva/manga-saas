@@ -12,7 +12,7 @@ export function AgenticDevStudioStickyBanner() {
         data-agenticdev-sticky
         data-ready="false"
         data-collapsed="false"
-        className="group fixed bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-4 z-[100] print:hidden transition-opacity duration-200 data-[ready=false]:opacity-0 data-[collapsed=true]:left-auto data-[collapsed=true]:right-4 data-[collapsed=true]:translate-x-0"
+        className="group fixed bottom-20 md:bottom-4 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-4 z-[100] print:hidden transition-opacity duration-200 data-[ready=false]:opacity-0 data-[collapsed=true]:left-auto data-[collapsed=true]:right-4 data-[collapsed=true]:translate-x-0 pointer-events-none"
       >
         <div className="relative flex items-center w-[90vw] md:max-w-[420px]">
           <Button
@@ -25,7 +25,7 @@ export function AgenticDevStudioStickyBanner() {
             <ChevronLeft className="h-4 w-4" />
           </Button>
 
-          <div className="bg-gray-100 dark:bg-background rounded-lg shadow-xl border-2 relative transition-transform duration-300 ease-in-out group-data-[collapsed=true]:translate-x-[calc(100%+3rem)]" data-container>
+          <div className="bg-gray-100 dark:bg-background rounded-lg shadow-xl border-2 relative transition-transform duration-300 ease-in-out group-data-[collapsed=true]:translate-x-[calc(100%+3rem)] pointer-events-auto" data-container>
             <Button
               size="icon"
               data-collapse-btn

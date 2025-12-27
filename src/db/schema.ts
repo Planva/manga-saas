@@ -1,4 +1,4 @@
-import { sqliteTable, integer, text, index,primaryKey } from "drizzle-orm/sqlite-core";
+import { sqliteTable, integer, text, index, primaryKey } from "drizzle-orm/sqlite-core";
 import { relations, sql } from "drizzle-orm";
 import { type InferSelectModel } from "drizzle-orm";
 import { createId } from '@paralleldrive/cuid2';
@@ -89,7 +89,7 @@ export const passKeyCredentialTable = sqliteTable("passkey_credential", {
   ipAddress: text({
     length: 100,
   }),
-  
+
 }, (table) => ([
   index('user_id_idx').on(table.userId),
   index('credential_id_idx').on(table.credentialId),
@@ -101,9 +101,9 @@ export const CREDIT_TRANSACTION_TYPE = {
   USAGE: 'USAGE',
   MONTHLY_REFRESH: 'MONTHLY_REFRESH',
   // ✅ 新增：清空未用赠送
-  DAILY_RESET: 'DAILY_RESET', 
+  DAILY_RESET: 'DAILY_RESET',
   // ✅ 建议补上：与你现有 updateUserCredits 日志一致    
-  ADJUSTMENT: 'ADJUSTMENT',       
+  ADJUSTMENT: 'ADJUSTMENT',
 } as const;
 
 export const creditTransactionTypeTuple = Object.values(CREDIT_TRANSACTION_TYPE) as [string, ...string[]];
@@ -398,6 +398,7 @@ export const adminSystemSettingsTable = sqliteTable("admin_system_settings", {
   featureDashboardBilling: integer().default(1).notNull(),
   featureDashboardSettings: integer().default(1).notNull(),
   dashboardHomeRoute: text().default("/dashboard/billing").notNull(),
+  featureMobileBottomNav: integer("feature_mobile_bottom_nav").default(0).notNull(),
 });
 export type AdminSystemSettings = InferSelectModel<typeof adminSystemSettingsTable>;
 export const adminUserEventTable = sqliteTable("admin_user_event", {
@@ -433,9 +434,9 @@ export const guestQuotaTable = sqliteTable(
 // 映射：Stripe Customer -> 本站 userId
 export const stripeCustomerMapTable = sqliteTable("stripe_customer_map", {
   customerId: text("customerId").primaryKey(),          // cus_***
-  userId:     text("userId").notNull(),                 // 引用 user.id（此处不强制外键以兼容 D1 版本差异）
-  createdAt:  integer("createdAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
-  updatedAt:  integer("updatedAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+  userId: text("userId").notNull(),                 // 引用 user.id（此处不强制外键以兼容 D1 版本差异）
+  createdAt: integer("createdAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updatedAt", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
 });
 
 // （可选）relations 如需

@@ -12,6 +12,7 @@ import { getAdminBannerSettings } from "@/utils/admin-banner-settings";
 import { AnnouncementBanner } from "@/components/announcement-banner";
 import { AgenticDevStudioStickyBanner } from "@/components/startup-studio-sticky-banner";
 import { getSystemSettings } from "@/utils/system-settings";
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 export const dynamic = "force-dynamic";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -101,6 +102,7 @@ export default async function BaseLayout({
         </ThemeProvider>
         <Toaster richColors closeButton position="top-right" expand duration={7000} />
         {systemSettings?.agenticBannerEnabled !== false && <AgenticDevStudioStickyBanner />}
+        <MobileBottomNav isEnabled={systemSettings?.mobileBottomNavEnabled ?? false} />
       </body>
     </html>
   );

@@ -5,6 +5,7 @@ import { getSystemSettings } from "@/utils/system-settings";
 import { BannerSettingsForm } from "./_components/banner-settings-form";
 import { BlogToggleForm } from "./_components/blog-toggle-form";
 import { AgenticBannerToggleForm } from "./_components/agentic-banner-toggle-form";
+import { MobileNavToggleForm } from "./_components/mobile-nav-toggle-form";
 
 export const metadata: Metadata = {
   title: "系统设置",
@@ -29,6 +30,7 @@ export default async function SystemSettingsPage() {
       <BannerSettingsForm initialSettings={bannerSettings} />
       <BlogToggleForm initialEnabled={systemSettings.blogEnabled} />
       <AgenticBannerToggleForm initialEnabled={systemSettings.agenticBannerEnabled} />
+      <MobileNavToggleForm initialEnabled={systemSettings.mobileBottomNavEnabled} />
     </div>
   );
 }

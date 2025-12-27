@@ -12,7 +12,7 @@ import { useSessionStore } from "@/state/session";
 import { useServerAction } from "zsa-react";
 import { resendVerificationAction } from "@/app/(auth)/resend-verification.action";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS } from "@/constants";
 import { Alert } from "@heroui/react"
 import isProd from "@/utils/is-prod";
@@ -23,17 +23,24 @@ const pagesToBypass: Route[] = [
   "/verify-email",
   "/sign-in",
   "/sign-up",
-  "/",
-  "/privacy",
-  "/terms",
   "/reset-password",
   "/forgot-password"
 ];
 
 export function EmailVerificationDialog() {
   const { session } = useSessionStore();
-  const [lastResendTime, setLastResendTime] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState(0);
   const pathname = usePathname();
+
+  useEffect(() => {
+    if (timeLeft <= 0) return;
+
+    const intervalId = setInterval(() => {
+      setTimeLeft((t) => t - 1);
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [timeLeft]);
 
   const { execute: resendVerification, status } = useServerAction(resendVerificationAction, {
     onError: (error) => {
@@ -46,7 +53,7 @@ export function EmailVerificationDialog() {
     onSuccess: () => {
       toast.dismiss();
       toast.success("Verification email sent");
-      setLastResendTime(Date.now());
+      setTimeLeft(600); // 10 minutes
     },
   });
 
@@ -60,8 +67,14 @@ export function EmailVerificationDialog() {
     return null;
   }
 
-  const canResend = !lastResendTime || Date.now() - lastResendTime > 60000; // 1 minute cooldown
+  const canResend = timeLeft <= 0;
   const isLoading = status === "pending";
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}m ${s}s`;
+  };
 
   return (
     <Dialog open modal onOpenChange={(newState) => {
@@ -75,16 +88,16 @@ export function EmailVerificationDialog() {
           <DialogDescription>
             Please verify your email address to access all features. We sent a verification link to {session.user.email}.
             The verification link will expire in {Math.floor(EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS / 3600)} hours.
-
-            {!isProd && (
-              <Alert
-                color="warning"
-                title="Development mode"
-                description="You can find the verification link in the console."
-                className="mt-4 mb-2"
-              />
-            )}
           </DialogDescription>
+
+          {!isProd && (
+            <Alert
+              color="warning"
+              title="Development mode"
+              description="You can find the verification link in the console."
+              className="mt-4 mb-2"
+            />
+          )}
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <Button
@@ -94,7 +107,7 @@ export function EmailVerificationDialog() {
             {isLoading
               ? "Sending..."
               : !canResend
-                ? "Please wait 1 minute before resending"
+                ? `Please wait ${formatTime(timeLeft)} before resending`
                 : "Resend verification email"}
           </Button>
         </div>

@@ -4,6 +4,7 @@ export const revalidate = 0;
 import Link from "next/link";
 import BuyButton from "./_components/buy-button.client";
 import { getSystemSettings } from "@/utils/system-settings";
+import { MobilePriceScrollContainer } from "./_components/mobile-price-scroll-container";
 
 type Tab = "pack" | "subscription";
 
@@ -138,41 +139,47 @@ export default async function Page({
   return (
     <div className="mx-auto max-w-6xl px-4 py-12">
       <h1 className="text-center text-4xl font-bold text-foreground">Simple Pricing</h1>
-      <p className="mt-3 text-center text-sm text-muted-foreground">
+      <h2 className="mt-3 text-center text-sm text-muted-foreground font-normal">
         Choose the plan that works for you — pay-per-use packs or monthly/yearly subscriptions.
-      </p>
+      </h2>
 
       {showToggle ? <Toggle tab={tab} /> : null}
 
       {hasPackProducts && (tab === "pack" || !hasSubscriptionProducts) && (
-        <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-3">
+        <MobilePriceScrollContainer className="md:grid-cols-3">
           {packPriceIds.starter && (
-            <Card
-              title="Starter Pack"
-              price="$6.90"
-              subtitle="≈300 translations"
-              kind="pack"
-              priceId={packPriceIds.starter}
-            />
+            <div className="min-w-[85vw] md:min-w-0 snap-center">
+              <Card
+                title="Starter Pack"
+                price="$6.90"
+                subtitle="≈300 translations"
+                kind="pack"
+                priceId={packPriceIds.starter}
+              />
+            </div>
           )}
           {packPriceIds.standard && (
-            <Card
-              title="Standard Pack"
-              price="$19.90"
-              subtitle="≈1,000 translations"
-              highlight
-              kind="pack"
-              priceId={packPriceIds.standard}
-            />
+            <div className="min-w-[85vw] md:min-w-0 snap-center" data-highlight="true">
+              <Card
+                title="Standard Pack"
+                price="$19.90"
+                subtitle="≈1,000 translations"
+                highlight
+                kind="pack"
+                priceId={packPriceIds.standard}
+              />
+            </div>
           )}
           {packPriceIds.bulk && (
-            <Card
-              title="Bulk Pack"
-              price="$24.90"
-              subtitle="≈1,200 translations"
-              kind="pack"
-              priceId={packPriceIds.bulk}
-            />
+            <div className="min-w-[85vw] md:min-w-0 snap-center">
+              <Card
+                title="Bulk Pack"
+                price="$24.90"
+                subtitle="≈1,200 translations"
+                kind="pack"
+                priceId={packPriceIds.bulk}
+              />
+            </div>
           )}
 
           {!Object.values(packPriceIds).some(Boolean) && (
@@ -180,29 +187,33 @@ export default async function Page({
               No pack products are configured. Add Stripe price IDs to your .env to offer one-time purchases.
             </div>
           )}
-        </div>
+        </MobilePriceScrollContainer>
       )}
 
       {hasSubscriptionProducts && (tab === "subscription" || !hasPackProducts) && (
-        <div className="mt-16 grid grid-cols-1 gap-6 md:grid-cols-2">
+        <MobilePriceScrollContainer className="mt-16 md:grid-cols-2">
           {subsPriceIds.monthly && (
-            <Card
-              title="Monthly"
-              price="$19.90"
-              subtitle="1,200 credits / month · rollover"
-              kind="subscription"
-              priceId={subsPriceIds.monthly}
-            />
+            <div className="min-w-[85vw] md:min-w-0 snap-center">
+              <Card
+                title="Monthly"
+                price="$19.90"
+                subtitle="1,200 credits / month · rollover"
+                kind="subscription"
+                priceId={subsPriceIds.monthly}
+              />
+            </div>
           )}
           {subsPriceIds.yearly && (
-            <Card
-              title="Yearly"
-              price="$199.90"
-              subtitle="16,000 credits / year · rollover"
-              highlight
-              kind="subscription"
-              priceId={subsPriceIds.yearly}
-            />
+            <div className="min-w-[85vw] md:min-w-0 snap-center" data-highlight="true">
+              <Card
+                title="Yearly"
+                price="$199.90"
+                subtitle="16,000 credits / year · rollover"
+                highlight
+                kind="subscription"
+                priceId={subsPriceIds.yearly}
+              />
+            </div>
           )}
 
           {!Object.values(subsPriceIds).some(Boolean) && (
@@ -210,7 +221,7 @@ export default async function Page({
               No subscription products are configured. Provide Stripe subscription price IDs in your .env to enable recurring plans.
             </div>
           )}
-        </div>
+        </MobilePriceScrollContainer>
       )}
 
       {!hasPackProducts && !hasSubscriptionProducts && (

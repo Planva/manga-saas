@@ -1,6 +1,7 @@
 import Link from "next/link"
 import type { Route } from "next"
-import { ComponentIcon, Menu } from "lucide-react"
+import { ComponentIcon } from "lucide-react"
+import { MobileMenu } from "./mobile-menu.client";
 import { SITE_NAME } from "@/constants"
 import { Button } from "@/components/ui/button"
 import { getSessionFromCookie } from "@/utils/auth"
@@ -10,6 +11,7 @@ import { NavigationActiveMarker } from "./navigation-active"
 
 type NavItem = {
   name: string
+  zh: string
   href: Route
 }
 
@@ -18,59 +20,39 @@ function NavLinks({ navItems }: { navItems: NavItem[] }) {
     <>
       {navItems.map((item) => (
         <Link
-          key={item.name}
+          key={item.href}
           href={item.href}
           className="text-muted-foreground hover:text-foreground no-underline px-3 h-16 flex items-center text-sm font-medium transition-colors relative data-[active=true]:text-foreground data-[active=true]:after:absolute data-[active=true]:after:left-0 data-[active=true]:after:bottom-0 data-[active=true]:after:h-0.5 data-[active=true]:after:w-full data-[active=true]:after:bg-foreground"
           data-active="false"
         >
-          {item.name}
+          {item.zh}
         </Link>
       ))}
     </>
   )
 }
 
-function MobileMenu({ navItems, hasSession }: { navItems: NavItem[]; hasSession: boolean }) {
-  return (
-    <details className="md:hidden">
-      <summary className="list-none">
-        <Button variant="ghost" size="icon" className="p-6" aria-label="Open menu">
-          <Menu className="w-9 h-9" />
-          <span className="sr-only">Open menu</span>
-        </Button>
-      </summary>
-      <div className="mt-3 pb-4 space-y-2">
-        {navItems.map((item) => (
-          <Link
-            key={item.name}
-            href={item.href}
-            className="block px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 no-underline transition-colors relative data-[active=true]:text-foreground"
-            data-active="false"
-          >
-            {item.name}
-          </Link>
-        ))}
-        {!hasSession && (
-          <div className="px-3 pt-4">
-            <Button asChild className="w-full">
-              <Link href="/sign-in">Sign In</Link>
-            </Button>
-          </div>
-        )}
-      </div>
-    </details>
-  )
-}
+// Revert type to remove 'zh' if desired, or just ignore it.
+// User requested English labels for bottom nav, but Chinese labels here were for Top Menu?
+// User said: 2、底部导航栏要点击文字或图标都可以进入页面，而不是点击文字才能进入。底部导航栏使用英文
+// "Bottom nav use English". Top menu "Hamburger menu no response".
+// I will fix Hamburger menu. And I will revert Bottom Nav to English in the NEXT step (mobile-bottom-nav.tsx).
+// Here I should probably keep Chinese for Top Menu if user didn't explicitly say "Top menu use English".
+// User only said "Bottom nav use English".
+// But "Hamburger menu no response".
+// So I fix Hamburger menu structure first.
+
+
 
 export async function Navigation() {
   const session = await getSessionFromCookie()
   const settings = await getSystemSettings()
 
   const navItems: NavItem[] = [
-    { name: "Home", href: "/" },
-    { name: "Pricing", href: "/price" },
-    ...(settings.blogEnabled ? [{ name: "Blog", href: "/blog" } as NavItem] : []),
-    ...(session ? [{ name: "Dashboard", href: "/dashboard" } as NavItem] : []),
+    { name: "Home", zh: "首页", href: "/" },
+    { name: "Pricing", zh: "价格", href: "/price" },
+    ...(settings.blogEnabled ? [{ name: "Blog", zh: "博客", href: "/blog" } as NavItem] : []),
+    ...(session ? [{ name: "Dashboard", zh: "控制台", href: "/dashboard" } as NavItem] : []),
   ]
 
   return (
@@ -95,7 +77,7 @@ export async function Navigation() {
             </div>
             {!session && (
               <Button asChild>
-                <Link href="/sign-in">Sign In</Link>
+                <Link href="/sign-in">登录</Link>
               </Button>
             )}
           </div>
