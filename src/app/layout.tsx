@@ -87,6 +87,13 @@ export default async function BaseLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{
+            __html:
+              'window.__name=window.__name||function(t,n){try{Object.defineProperty(t,"name",{value:n,configurable:true});}catch{}return t;};window.e=window.e||window.__name;'
+          }}
+        />
         <NextTopLoader
           initialPosition={0.15}
           shadow="0 0 10px #000, 0 0 5px #000"
