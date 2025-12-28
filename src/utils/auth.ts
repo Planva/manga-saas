@@ -22,6 +22,7 @@ import { ZSAError } from "zsa";
 import { addFreeMonthlyCreditsIfNeeded } from "./credits";
 import { getInitials } from "./name-initials";
 import { isDisposableEmailDomain } from "./disposable-email-domains";
+import { cache } from "react";
 const isProd = process.env.NODE_ENV === "production";
 const SESSION_COOKIE_NAME = process.env.NEXT_PUBLIC_SESSION_COOKIE_NAME ?? "session"; // 你的项目里已有常量就复用它
 const getSessionLength = () => {
@@ -267,7 +268,7 @@ export async function deleteSessionTokenCookie(): Promise<void> {
 /**
  * This function can only be called in a Server Components, Server Action or Route Handler
  */
-export async function getSessionFromCookie(): Promise<SessionValidationResult | null> {
+const getSessionFromCookieRaw = async (): Promise<SessionValidationResult | null> => {
   noStore(); // 每次都走新请求，避免拿到预取/缓存的旧会话
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME)?.value;
@@ -277,7 +278,9 @@ export async function getSessionFromCookie(): Promise<SessionValidationResult | 
   if (!decoded?.token || !decoded?.userId) return null;
 
   return validateSessionToken(decoded.token, decoded.userId);
-}
+};
+
+export const getSessionFromCookie = cache(getSessionFromCookieRaw);
 
 
 

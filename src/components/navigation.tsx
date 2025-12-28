@@ -25,7 +25,7 @@ function NavLinks({ navItems }: { navItems: NavItem[] }) {
           className="text-muted-foreground hover:text-foreground no-underline px-3 h-16 flex items-center text-sm font-medium transition-colors relative data-[active=true]:text-foreground data-[active=true]:after:absolute data-[active=true]:after:left-0 data-[active=true]:after:bottom-0 data-[active=true]:after:h-0.5 data-[active=true]:after:w-full data-[active=true]:after:bg-foreground"
           data-active="false"
         >
-          {item.zh}
+          {item.name}
         </Link>
       ))}
     </>
@@ -88,4 +88,3 @@ export async function Navigation() {
     </nav>
   )
 }
-

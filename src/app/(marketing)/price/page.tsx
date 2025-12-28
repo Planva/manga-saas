@@ -10,7 +10,7 @@ type Tab = "pack" | "subscription";
 
 function Toggle({ tab }: { tab: Tab }) {
   return (
-    <div className="mx-auto mt-8 flex w-full max-w-md overflow-hidden rounded-full bg-muted p-1 shadow-sm">
+    <div className="mx-auto mt-8 mb-8 flex w-full max-w-md overflow-hidden rounded-full bg-muted p-1 shadow-sm">
       <Link
         href="/price?tab=pack"
         prefetch={false}

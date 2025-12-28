@@ -2,6 +2,7 @@
 
 import "server-only";
 
+import { cache } from "react";
 import { unstable_noStore as noStore } from "next/cache";
 import { eq } from "drizzle-orm";
 
@@ -257,7 +258,7 @@ const normalizeRecord = (record?: AdminSystemSettings | null): SystemSettings =>
   };
 };
 
-export async function getSystemSettings(): Promise<SystemSettings> {
+const getSystemSettingsRaw = async (): Promise<SystemSettings> => {
   noStore();
   const db = getDB();
 
@@ -266,7 +267,9 @@ export async function getSystemSettings(): Promise<SystemSettings> {
   });
 
   return normalizeRecord(record ?? undefined);
-}
+};
+
+export const getSystemSettings = cache(getSystemSettingsRaw);
 
 type UpdateSystemSettingsParams = Omit<SystemSettings, "stripePrices">;
 
@@ -304,5 +307,5 @@ export async function updateSystemSettings(params: UpdateSystemSettingsParams): 
     })
     .where(eq(adminSystemSettingsTable.id, DEFAULT_ID));
 
-  return getSystemSettings();
+  return getSystemSettingsRaw();
 }

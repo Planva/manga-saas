@@ -7,7 +7,6 @@ import { Mail } from "lucide-react";
 import ThemeSwitch from "@/components/theme-switch";
 import { GITHUB_REPO_URL, SITE_NAME } from "@/constants";
 import { Button } from "./ui/button";
-import { getGithubStars } from "@/utils/stats";
 import { Suspense } from "react";
 
 /** 你自己的链接：保持竖排；超出 5 个时会显示“More”展开全部 */
@@ -149,11 +148,7 @@ export function Footer() {
               </p>
 
               <div className="flex flex-col md:flex-row items-center gap-4 md:space-x-4">
-                {GITHUB_REPO_URL && (
-                  <Suspense fallback={<GithubButtonFallback />}>
-                    <GithubButton />
-                  </Suspense>
-                )}
+              
                 <div className="flex items-center gap-4">
                   <ThemeSwitch />
                 </div>
@@ -166,34 +161,5 @@ export function Footer() {
   );
 }
 
-/** ====== 你原来就有的 Github 按钮（保留） ====== */
-async function GithubButton() {
-  const stars = await getGithubStars();
-  return (
-    <Button asChild variant="outline" className="gap-2">
-      <a
-        href={GITHUB_REPO_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="GitHub Repository"
-      >
-        <GithubIcon className="h-4 w-4" />
-        <span>Star on GitHub</span>
-        {typeof stars === "number" && (
-          <span className="ml-1 text-muted-foreground">({stars.toLocaleString()})</span>
-        )}
-      </a>
-    </Button>
-  );
-}
 
-function GithubButtonFallback() {
-  return (
-    <Button asChild variant="outline" className="gap-2">
-      <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer">
-        <GithubIcon className="h-4 w-4" />
-        <span>GitHub</span>
-      </a>
-    </Button>
-  );
-}
+
