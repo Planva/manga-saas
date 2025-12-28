@@ -1,7 +1,10 @@
+import { headers } from "next/headers";
 import { getSiteUrl } from "@/utils/site-url";
 
+export const dynamic = "force-dynamic";
+
 export default async function sitemap() {
-  const site = getSiteUrl();
+  const site = getSiteUrl({ headers: headers() });
   const now = new Date();
   return [
     { url: site, lastModified: now },
