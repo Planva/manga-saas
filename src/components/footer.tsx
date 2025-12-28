@@ -14,7 +14,6 @@ const LINKS: { label: string; href: string }[] = [
   { label: "Docs", href: "/docs" },
   { label: "Blog", href: "/blog" },
   { label: "Changelog", href: "/changelog" },
-  { label: "Status", href: "/status" },
   { label: "Support", href: "/support" },
   // 超过 5 个会被折叠到“More”里
   { label: "Careers", href: "/careers" },
