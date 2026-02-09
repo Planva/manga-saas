@@ -72,6 +72,39 @@ const toErrorMessage = (error: unknown): string => {
   return String(error);
 };
 
+const toPopupInitErrorMessage = (error: unknown, priceId: string): string => {
+  const fallback = "Failed to initialize payment. Please try again.";
+  const message = toErrorMessage(error);
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("missing stripe_secret_key")) {
+    return "Payment service is not configured (missing STRIPE_SECRET_KEY).";
+  }
+  if (normalized.includes("no such price")) {
+    return `Stripe price not found: ${priceId}. Check key mode and price IDs.`;
+  }
+  if (normalized.includes("invalid api key")) {
+    return "Stripe API key is invalid. Please verify STRIPE_SECRET_KEY.";
+  }
+  if (normalized.includes("permission") && normalized.includes("customer")) {
+    return "Stripe key lacks customer permission. Please update API key permissions.";
+  }
+
+  const stripeLike = error as {
+    message?: string;
+    raw?: { message?: string };
+  } | null;
+  const rawMessage = stripeLike?.raw?.message?.trim();
+  if (rawMessage) {
+    return rawMessage;
+  }
+  const directMessage = stripeLike?.message?.trim();
+  if (directMessage) {
+    return directMessage;
+  }
+  return fallback;
+};
+
 export async function checkout({
   kind,
   priceId,
@@ -164,9 +197,16 @@ async function getOrCreateCustomerId(params: {
   email: string;
   userId: string;
 }): Promise<string> {
-  const list = await params.stripe.customers.list({ email: params.email, limit: 1 });
-  const existing = list.data[0]?.id;
-  if (existing) return existing;
+  try {
+    const list = await params.stripe.customers.list({ email: params.email, limit: 1 });
+    const existing = list.data[0]?.id;
+    if (existing) return existing;
+  } catch (error) {
+    console.warn(
+      "[popup-payment] customers.list failed, creating customer directly:",
+      toErrorMessage(error),
+    );
+  }
 
   const created = await params.stripe.customers.create({
     email: params.email,
@@ -186,6 +226,10 @@ export async function createPopupPaymentSession({
   priceId: string;
 }): Promise<PopupPaymentSessionResult> {
   try {
+    if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+      return { errorMessage: "Payment service is not configured (missing STRIPE_SECRET_KEY)." };
+    }
+
     if (kind !== "pack" && kind !== "subscription") {
       return { errorMessage: "Invalid payment type." };
     }
@@ -297,13 +341,15 @@ export async function createPopupPaymentSession({
 
     return { clientSecret, sessionId };
   } catch (error) {
+    const userMessage = toPopupInitErrorMessage(error, priceId);
     console.error(
       "[popup-payment] create session failed:",
       `kind=${kind}`,
       `priceId=${priceId}`,
       toErrorMessage(error),
+      `userMessage=${userMessage}`,
     );
-    return { errorMessage: "Failed to initialize payment. Please try again." };
+    return { errorMessage: userMessage };
   }
 }
 
