@@ -29,11 +29,8 @@ import {
 type Props = {
   packs: MarketingPricingPlan[];
   subscriptions: MarketingPricingPlan[];
+  stripePublishableKey: string | null;
 };
-
-const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
-  : null;
 
 const EXPRESS_CHECKOUT_METHOD_ORDER = [
   "paypal",
@@ -142,6 +139,12 @@ function PopupPaymentForm({
 
     setIsSubmitting(true);
     try {
+      const submitResult = await elements.submit();
+      if (submitResult.error) {
+        toast.error(submitResult.error.message || "Payment form is incomplete.");
+        return false;
+      }
+
       const { error } = await stripe.confirmPayment({
         elements,
         clientSecret,
@@ -237,8 +240,13 @@ function PopupPaymentForm({
 export default function TestPopupPaymentButtonClient({
   packs,
   subscriptions,
+  stripePublishableKey,
 }: Props) {
   const router = useRouter();
+  const stripePromise = React.useMemo(
+    () => (stripePublishableKey ? loadStripe(stripePublishableKey) : null),
+    [stripePublishableKey],
+  );
   const [open, setOpen] = React.useState(false);
   const [selectedPlan, setSelectedPlan] = React.useState<MarketingPricingPlan | null>(null);
   const [clientSecret, setClientSecret] = React.useState<string | null>(null);
@@ -362,7 +370,8 @@ export default function TestPopupPaymentButtonClient({
 
                   {!stripePromise && (
                     <div className="rounded-lg border border-dashed border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
-                      Missing NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.
+                      Missing Stripe publishable key. Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+                      (or STRIPE_PUBLISHABLE_KEY) in runtime environment.
                     </div>
                   )}
 

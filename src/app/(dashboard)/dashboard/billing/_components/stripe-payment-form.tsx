@@ -40,6 +40,12 @@ function PaymentForm({ packageId, clientSecret, onSuccess, onCancel, credits, pr
     setIsProcessing(true);
 
     try {
+      const submitResult = await elements.submit();
+      if (submitResult.error) {
+        toast.error(submitResult.error.message || "Payment form is incomplete");
+        return;
+      }
+
       const { error } = await stripe.confirmPayment({
         elements,
         redirect: "if_required",
