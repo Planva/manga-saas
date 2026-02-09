@@ -260,13 +260,21 @@ const normalizeRecord = (record?: AdminSystemSettings | null): SystemSettings =>
 
 const getSystemSettingsRaw = async (): Promise<SystemSettings> => {
   noStore();
-  const db = getDB();
+  try {
+    const db = getDB();
 
-  const record = await db.query.adminSystemSettingsTable.findFirst({
-    where: eq(adminSystemSettingsTable.id, DEFAULT_ID),
-  });
+    const record = await db.query.adminSystemSettingsTable.findFirst({
+      where: eq(adminSystemSettingsTable.id, DEFAULT_ID),
+    });
 
-  return normalizeRecord(record ?? undefined);
+    return normalizeRecord(record ?? undefined);
+  } catch (error) {
+    console.warn(
+      "[system-settings] failed to read DB settings, falling back to env/default values:",
+      error,
+    );
+    return normalizeRecord(undefined);
+  }
 };
 
 export const getSystemSettings = cache(getSystemSettingsRaw);

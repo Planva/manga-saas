@@ -102,12 +102,14 @@ function Card(props: {
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: "pack" | "subscription" }>;
+  searchParams?: Promise<{ tab?: string | string[] }>;
 }) {
-  const [{ tab: tabRaw }, settings] = await Promise.all([
+  const [rawSearchParams, settings] = await Promise.all([
     searchParams,
     getSystemSettings(),
   ]);
+  const tabParam = rawSearchParams?.tab;
+  const tabRaw = typeof tabParam === "string" ? tabParam : undefined;
 
   const enablePacks = settings.enablePacks;
   const enableSubs = settings.enableSubscriptions;
