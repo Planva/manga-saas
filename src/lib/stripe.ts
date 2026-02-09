@@ -7,9 +7,19 @@ let stripeInstance: Stripe | null = null;
 export function getStripe() {
   if (stripeInstance) return stripeInstance;
 
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
   if (!stripeSecretKey) {
     throw new Error("Missing STRIPE_SECRET_KEY environment variable");
+  }
+  if (stripeSecretKey.startsWith("pk_")) {
+    throw new Error(
+      "Invalid STRIPE_SECRET_KEY: a publishable key (pk_*) is configured. Set a secret key (sk_* or rk_*) in the runtime environment.",
+    );
+  }
+  if (!stripeSecretKey.startsWith("sk_") && !stripeSecretKey.startsWith("rk_")) {
+    throw new Error(
+      "Invalid STRIPE_SECRET_KEY format. Expected a Stripe secret key (sk_* or rk_*).",
+    );
   }
 
   stripeInstance = new Stripe(stripeSecretKey, {

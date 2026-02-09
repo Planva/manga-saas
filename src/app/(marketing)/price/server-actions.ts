@@ -80,6 +80,15 @@ const toPopupInitErrorMessage = (error: unknown, priceId: string): string => {
   if (normalized.includes("missing stripe_secret_key")) {
     return "Payment service is not configured (missing STRIPE_SECRET_KEY).";
   }
+  if (normalized.includes("publishable key (pk_*) is configured")) {
+    return "STRIPE_SECRET_KEY is set to a publishable key (pk_*). Set a secret key (sk_* or rk_*) in runtime secrets.";
+  }
+  if (normalized.includes("publishable api key")) {
+    return "STRIPE_SECRET_KEY is using a publishable key. Replace it with a secret key (sk_* or rk_*).";
+  }
+  if (normalized.includes("invalid stripe_secret_key format")) {
+    return "Invalid STRIPE_SECRET_KEY format. Expected sk_* or rk_*.";
+  }
   if (normalized.includes("no such price")) {
     return `Stripe price not found: ${priceId}. Check key mode and price IDs.`;
   }
