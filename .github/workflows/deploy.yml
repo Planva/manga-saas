@@ -49,6 +49,14 @@ jobs:
       - name: Migrate local D1 database
         run: pnpm run db:migrate:dev
 
+      - name: Sync Stripe secret to Worker
+        if: ${{ secrets.STRIPE_SECRET_KEY != '' }}
+        run: echo "$STRIPE_SECRET_KEY" | corepack pnpm exec wrangler secret put STRIPE_SECRET_KEY --name manga-saas --config wrangler.jsonc
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+
       - name: Deploy
         run: pnpm run deploy
         env:

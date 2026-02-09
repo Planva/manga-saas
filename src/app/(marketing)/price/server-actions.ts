@@ -83,6 +83,9 @@ const toPopupInitErrorMessage = (error: unknown, priceId: string): string => {
   if (normalized.includes("publishable key (pk_*) is configured")) {
     return "STRIPE_SECRET_KEY is set to a publishable key (pk_*). Set a secret key (sk_* or rk_*) in runtime secrets.";
   }
+  if (normalized.includes("from cloudflare_env")) {
+    return "Cloudflare runtime STRIPE_SECRET_KEY is invalid. Please check Worker secret STRIPE_SECRET_KEY (must be sk_* or rk_*).";
+  }
   if (normalized.includes("publishable api key")) {
     return "STRIPE_SECRET_KEY is using a publishable key. Replace it with a secret key (sk_* or rk_*).";
   }
@@ -161,10 +164,6 @@ export async function createCheckoutSessionUrl({
   priceId: string;
 }): Promise<{ url: string } | { errorMessage: string }> {
   try {
-    if (!process.env.STRIPE_SECRET_KEY?.trim()) {
-      return { errorMessage: "Payment service is not configured (missing STRIPE_SECRET_KEY)." };
-    }
-
     const settings = await getSystemSettings();
 
     if (!isProductEnabled(kind, priceId, settings)) {
@@ -257,10 +256,6 @@ export async function createPopupPaymentSession({
   priceId: string;
 }): Promise<PopupPaymentSessionResult> {
   try {
-    if (!process.env.STRIPE_SECRET_KEY?.trim()) {
-      return { errorMessage: "Payment service is not configured (missing STRIPE_SECRET_KEY)." };
-    }
-
     if (kind !== "pack" && kind !== "subscription") {
       return { errorMessage: "Invalid payment type." };
     }
