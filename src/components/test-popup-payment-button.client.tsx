@@ -11,6 +11,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -243,10 +244,12 @@ export default function TestPopupPaymentButtonClient({
   stripePublishableKey,
 }: Props) {
   const router = useRouter();
+  const { resolvedTheme } = useTheme();
   const stripePromise = React.useMemo(
     () => (stripePublishableKey ? loadStripe(stripePublishableKey) : null),
     [stripePublishableKey],
   );
+  const stripeAppearanceTheme = resolvedTheme === "dark" ? "night" : "stripe";
   const [open, setOpen] = React.useState(false);
   const [selectedPlan, setSelectedPlan] = React.useState<MarketingPricingPlan | null>(null);
   const [clientSecret, setClientSecret] = React.useState<string | null>(null);
@@ -387,7 +390,7 @@ export default function TestPopupPaymentButtonClient({
                       stripe={stripePromise}
                       options={{
                         clientSecret,
-                        appearance: { theme: "stripe" },
+                        appearance: { theme: stripeAppearanceTheme },
                       }}
                     >
                       <PopupPaymentForm
