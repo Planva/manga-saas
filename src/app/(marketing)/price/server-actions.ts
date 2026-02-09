@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, getStripeKeyDebugInfo } from "@/lib/stripe";
 import { getSessionFromCookie } from "@/utils/auth";
 import { getSiteUrl } from "@/utils/site-url";
 import { logUserEvent } from "@/utils/user-events";
@@ -163,6 +163,13 @@ export async function createCheckoutSessionUrl({
   kind: "pack" | "subscription";
   priceId: string;
 }): Promise<{ url: string } | { errorMessage: string }> {
+  const stripeKeyDebug = getStripeKeyDebugInfo();
+  console.log("[checkout] createCheckoutSessionUrl start", {
+    kind,
+    priceId,
+    stripeKeyDebug,
+  });
+
   try {
     const settings = await getSystemSettings();
 
@@ -208,6 +215,7 @@ export async function createCheckoutSessionUrl({
       "[checkout] create checkout session url failed:",
       `kind=${kind}`,
       `priceId=${priceId}`,
+      `stripeKeyDebug=${JSON.stringify(stripeKeyDebug)}`,
       toErrorMessage(error),
       `userMessage=${userMessage}`,
     );
@@ -255,6 +263,13 @@ export async function createPopupPaymentSession({
   kind: "pack" | "subscription";
   priceId: string;
 }): Promise<PopupPaymentSessionResult> {
+  const stripeKeyDebug = getStripeKeyDebugInfo();
+  console.log("[popup-payment] createPopupPaymentSession start", {
+    kind,
+    priceId,
+    stripeKeyDebug,
+  });
+
   try {
     if (kind !== "pack" && kind !== "subscription") {
       return { errorMessage: "Invalid payment type." };
@@ -372,6 +387,7 @@ export async function createPopupPaymentSession({
       "[popup-payment] create session failed:",
       `kind=${kind}`,
       `priceId=${priceId}`,
+      `stripeKeyDebug=${JSON.stringify(stripeKeyDebug)}`,
       toErrorMessage(error),
       `userMessage=${userMessage}`,
     );

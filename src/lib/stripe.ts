@@ -42,6 +42,19 @@ const resolveStripeSecretKey = (): { value?: string; source: KeySource } => {
   return { value: process.env.STRIPE_SECRET_KEY?.trim(), source: "process_env" };
 };
 
+export function getStripeKeyDebugInfo() {
+  const cloudflareValue = readCloudflareStripeSecret();
+  const processValue = process.env.STRIPE_SECRET_KEY?.trim();
+  const resolved = resolveStripeSecretKey();
+  return {
+    selectedSource: resolved.source,
+    selectedType: classifyStripeKey(resolved.value),
+    cloudflareType: classifyStripeKey(cloudflareValue),
+    processType: classifyStripeKey(processValue),
+    hasMismatch: Boolean(cloudflareValue && processValue && cloudflareValue !== processValue),
+  };
+}
+
 export function getStripe() {
   if (stripeInstance) return stripeInstance;
 
