@@ -9,7 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/component
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import SeparatorWithText from "@/components/separator-with-text";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { Captcha } from "@/components/captcha";
 
@@ -251,6 +251,9 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Sign up with a Passkey</DialogTitle>
+            <DialogDescription>
+              Enter your account details, then create a passkey in your browser to finish secure sign-up.
+            </DialogDescription>
           </DialogHeader>
           <Form {...passkeyForm}>
             <form onSubmit={passkeyForm.handleSubmit(onPasskeySubmit)} className="space-y-6 mt-6">

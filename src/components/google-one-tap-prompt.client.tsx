@@ -7,6 +7,7 @@ import Script from "next/script";
 
 type Props = {
   clientId: string;
+  allowedOrigins?: string[];
 };
 
 type GoogleCredentialResponse = {
@@ -39,10 +40,32 @@ declare global {
   }
 }
 
-export default function GoogleOneTapPromptClient({ clientId }: Props) {
+const normalizeOrigin = (value: string): string | null => {
+  const raw = value.trim();
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin.toLowerCase();
+  } catch {
+    return null;
+  }
+};
+
+export default function GoogleOneTapPromptClient({ clientId, allowedOrigins = [] }: Props) {
   const router = useRouter();
   const initializedRef = React.useRef(false);
   const submittingRef = React.useRef(false);
+  const currentOrigin =
+    typeof window !== "undefined" ? window.location.origin.toLowerCase() : "";
+  const normalizedAllowedOrigins = React.useMemo(
+    () =>
+      allowedOrigins
+        .map(normalizeOrigin)
+        .filter((origin): origin is string => Boolean(origin)),
+    [allowedOrigins],
+  );
+  const shouldInitOneTap =
+    normalizedAllowedOrigins.length === 0 ||
+    normalizedAllowedOrigins.includes(currentOrigin);
 
   const handleCredential = React.useCallback(
     async (response: GoogleCredentialResponse) => {
@@ -82,7 +105,7 @@ export default function GoogleOneTapPromptClient({ clientId }: Props) {
   );
 
   const initOneTap = React.useCallback(() => {
-    if (initializedRef.current) return;
+    if (initializedRef.current || !shouldInitOneTap) return;
 
     const googleId = window.google?.accounts?.id;
     if (!googleId) return;
@@ -97,15 +120,24 @@ export default function GoogleOneTapPromptClient({ clientId }: Props) {
     });
     googleId.prompt();
     initializedRef.current = true;
-  }, [clientId, handleCredential]);
+  }, [clientId, handleCredential, shouldInitOneTap]);
 
   React.useEffect(() => {
+    if (!shouldInitOneTap) {
+      if (currentOrigin) {
+        console.warn(
+          `[google-one-tap] skipped on origin ${currentOrigin}. Add this origin to GOOGLE_ONE_TAP_ALLOWED_ORIGINS and Google OAuth Authorized JavaScript origins.`,
+        );
+      }
+      return;
+    }
     initOneTap();
     return () => {
       window.google?.accounts?.id?.cancel?.();
     };
-  }, [initOneTap]);
+  }, [currentOrigin, initOneTap, shouldInitOneTap]);
 
+  if (!shouldInitOneTap) return null;
   return (
     <Script
       id="google-gsi-client"

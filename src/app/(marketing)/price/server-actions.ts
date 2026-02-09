@@ -7,11 +7,6 @@ import { getSiteUrl } from "@/utils/site-url";
 import { logUserEvent } from "@/utils/user-events";
 import { getSystemSettings, type SystemSettings } from "@/utils/system-settings";
 import type Stripe from "stripe";
-import { getPriceToCreditsMap } from "@/config/price-to-credits";
-import { updateUserCredits } from "@/utils/credits";
-import { getDB } from "@/db";
-import { creditTransactionTable } from "@/db/schema";
-import { eq } from "drizzle-orm";
 
 const preferredPopupPaymentMethods = [
   "paypal",
@@ -68,6 +63,13 @@ const isProductEnabled = (
 
   if (!settings.enableSubscriptions) return false;
   return ids.subscriptions.includes(trimmed);
+};
+
+const toErrorMessage = (error: unknown): string => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return String(error);
 };
 
 export async function checkout({
@@ -154,7 +156,8 @@ type PopupPaymentFlow = "payment_intent" | "subscription";
 
 export type PopupPaymentSessionResult =
   | { clientSecret: string; sessionId: string }
-  | { redirectUrl: string };
+  | { redirectUrl: string }
+  | { errorMessage: string };
 
 async function getOrCreateCustomerId(params: {
   stripe: Stripe;
@@ -182,105 +185,126 @@ export async function createPopupPaymentSession({
   kind: "pack" | "subscription";
   priceId: string;
 }): Promise<PopupPaymentSessionResult> {
-  const settings = await getSystemSettings();
-
-  if (!isProductEnabled(kind, priceId, settings)) {
-    throw new Error("This product is currently disabled.");
-  }
-
-  const session = await getSessionFromCookie();
-  const siteUrl = getSiteUrl();
-
-  if (!session?.user?.email) {
-    return { redirectUrl: `${siteUrl}/sign-in?redirect=/dashboard/billing` };
-  }
-
-  const stripe = await getStripe();
-  const userId = String(session.user.id);
-  const customerId = await getOrCreateCustomerId({
-    stripe,
-    email: session.user.email!,
-    userId,
-  });
-
-  let flow: PopupPaymentFlow;
-  let clientSecret: string | null = null;
-  let sessionId: string;
-
-  if (kind === "pack") {
-    const price = await stripe.prices.retrieve(priceId);
-    if (!price.unit_amount || !price.currency) {
-      throw new Error("Invalid one-time price configuration.");
-    }
-    if (price.recurring) {
-      throw new Error("The selected price is not a one-time plan.");
+  try {
+    if (kind !== "pack" && kind !== "subscription") {
+      return { errorMessage: "Invalid payment type." };
     }
 
-    const intent = await stripe.paymentIntents.create({
-      amount: price.unit_amount,
-      currency: price.currency,
-      customer: customerId,
-      automatic_payment_methods: { enabled: true },
-      metadata: {
-        source: "marketing_modal_payment_element",
-        userId,
-        kind,
-        priceId,
-      },
+    const normalizedPriceId = typeof priceId === "string" ? priceId.trim() : "";
+    if (!normalizedPriceId) {
+      return { errorMessage: "Invalid price ID." };
+    }
+
+    const settings = await getSystemSettings();
+
+    if (!isProductEnabled(kind, normalizedPriceId, settings)) {
+      return { errorMessage: "This product is currently disabled." };
+    }
+
+    const session = await getSessionFromCookie();
+    const siteUrl = getSiteUrl();
+
+    if (!session?.user?.email) {
+      return { redirectUrl: `${siteUrl}/sign-in?redirect=/dashboard/billing` };
+    }
+
+    const stripe = await getStripe();
+    const userId = String(session.user.id);
+    const customerId = await getOrCreateCustomerId({
+      stripe,
+      email: session.user.email!,
+      userId,
     });
 
-    flow = "payment_intent";
-    clientSecret = intent.client_secret;
-    sessionId = intent.id;
-  } else {
-    const price = await stripe.prices.retrieve(priceId);
-    if (!price.recurring) {
-      throw new Error("The selected price is not a subscription plan.");
+    let flow: PopupPaymentFlow;
+    let clientSecret: string | null = null;
+    let sessionId: string;
+
+    if (kind === "pack") {
+      const price = await stripe.prices.retrieve(normalizedPriceId);
+      if (!price.unit_amount || !price.currency) {
+        return { errorMessage: "Invalid one-time price configuration." };
+      }
+      if (price.recurring) {
+        return { errorMessage: "The selected price is not a one-time plan." };
+      }
+
+      const intent = await stripe.paymentIntents.create({
+        amount: price.unit_amount,
+        currency: price.currency,
+        customer: customerId,
+        automatic_payment_methods: { enabled: true },
+        metadata: {
+          source: "marketing_modal_payment_element",
+          userId,
+          kind,
+          priceId: normalizedPriceId,
+        },
+      });
+
+      flow = "payment_intent";
+      clientSecret = intent.client_secret;
+      sessionId = intent.id;
+    } else {
+      const price = await stripe.prices.retrieve(normalizedPriceId);
+      if (!price.recurring) {
+        return { errorMessage: "The selected price is not a subscription plan." };
+      }
+
+      const subscription = await stripe.subscriptions.create({
+        customer: customerId,
+        items: [{ price: normalizedPriceId }],
+        payment_behavior: "default_incomplete",
+        payment_settings: {
+          save_default_payment_method: "on_subscription",
+        },
+        metadata: {
+          source: "marketing_modal_payment_element",
+          userId,
+          kind,
+          priceId: normalizedPriceId,
+        },
+        expand: ["latest_invoice.payment_intent"],
+      });
+
+      const latestInvoice = subscription.latest_invoice as Stripe.Invoice | null;
+      const paymentIntent = latestInvoice?.payment_intent as Stripe.PaymentIntent | null;
+
+      flow = "subscription";
+      clientSecret = paymentIntent?.client_secret ?? null;
+      sessionId = subscription.id;
     }
 
-    const subscription = await stripe.subscriptions.create({
-      customer: customerId,
-      items: [{ price: priceId }],
-      payment_behavior: "default_incomplete",
-      payment_settings: {
-        save_default_payment_method: "on_subscription",
-      },
+    if (!clientSecret) {
+      return { errorMessage: "Failed to initialize popup payment." };
+    }
+
+    await logUserEvent({
+      eventType: "checkout_started",
+      userId,
+      email: session.user.email ?? null,
       metadata: {
-        source: "marketing_modal_payment_element",
-        userId,
+        source: "marketing_modal",
         kind,
-        priceId,
+        priceId: normalizedPriceId,
+        flow,
+        sessionId,
+        preferredMethods: preferredPopupPaymentMethods,
       },
-      expand: ["latest_invoice.payment_intent"],
+    }).catch((eventLogError) => {
+      console.error("[popup-payment] failed to write checkout_started event:", toErrorMessage(eventLogError));
     });
 
-    const latestInvoice = subscription.latest_invoice as Stripe.Invoice | null;
-    const paymentIntent = latestInvoice?.payment_intent as Stripe.PaymentIntent | null;
-
-    flow = "subscription";
-    clientSecret = paymentIntent?.client_secret ?? null;
-    sessionId = subscription.id;
+    return { clientSecret, sessionId };
+  } catch (error) {
+    console.error(
+      "[popup-payment] create session failed:",
+      `kind=${kind}`,
+      `priceId=${priceId}`,
+      toErrorMessage(error),
+    );
+    return { errorMessage: "Failed to initialize payment. Please try again." };
   }
-
-  if (!clientSecret) {
-    throw new Error("Failed to initialize popup payment.");
-  }
-
-  await logUserEvent({
-    eventType: "checkout_started",
-    userId,
-    email: session.user.email ?? null,
-    metadata: {
-      source: "marketing_modal",
-      kind,
-      priceId,
-      flow,
-      sessionId,
-      preferredMethods: preferredPopupPaymentMethods,
-    },
-  });
-
-  return { clientSecret, sessionId };
 }
 
 export async function finalizePopupPackPayment({
@@ -290,6 +314,15 @@ export async function finalizePopupPackPayment({
   paymentIntentId: string;
   priceId: string;
 }): Promise<{ success: true; alreadyProcessed?: boolean }> {
+  const [{ getPriceToCreditsMap }, { updateUserCredits }, { getDB }, { creditTransactionTable }, { eq }] =
+    await Promise.all([
+      import("@/config/price-to-credits"),
+      import("@/utils/credits"),
+      import("@/db"),
+      import("@/db/schema"),
+      import("drizzle-orm"),
+    ]);
+
   const session = await getSessionFromCookie();
   if (!session?.user?.id) {
     throw new Error("Unauthorized");

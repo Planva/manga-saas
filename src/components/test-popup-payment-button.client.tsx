@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -69,6 +70,12 @@ const PAYMENT_ELEMENT_METHOD_ORDER = [
 ] as const;
 
 const A11yDialogTitle = DialogTitle as unknown as React.ComponentType<{
+  id?: string;
+  children: React.ReactNode;
+  className?: string;
+}>;
+const A11yDialogDescription = DialogDescription as unknown as React.ComponentType<{
+  id?: string;
   children: React.ReactNode;
   className?: string;
 }>;
@@ -234,6 +241,8 @@ export default function TestPopupPaymentButtonClient({
   subscriptions,
 }: Props) {
   const router = useRouter();
+  const dialogTitleId = React.useId();
+  const dialogDescriptionId = React.useId();
   const [open, setOpen] = React.useState(false);
   const [selectedPlan, setSelectedPlan] = React.useState<MarketingPricingPlan | null>(null);
   const [clientSecret, setClientSecret] = React.useState<string | null>(null);
@@ -267,6 +276,11 @@ export default function TestPopupPaymentButtonClient({
         window.location.href = result.redirectUrl;
         return;
       }
+      if ("errorMessage" in result) {
+        toast.error(result.errorMessage);
+        setSelectedPlan(null);
+        return;
+      }
 
       setClientSecret(result.clientSecret);
     } catch (error) {
@@ -290,12 +304,21 @@ export default function TestPopupPaymentButtonClient({
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="w-[calc(100%-1rem)] max-w-4xl p-0">
+        <DialogContent
+          className="w-[calc(100%-1rem)] max-w-4xl p-0"
+          aria-labelledby={dialogTitleId}
+          aria-describedby={dialogDescriptionId}
+        >
           <div className="p-5 sm:p-6">
             <DialogHeader>
-              <A11yDialogTitle className="sr-only">
+              <A11yDialogTitle id={dialogTitleId} className="sr-only">
                 {selectedPlan && clientSecret ? "Confirm and pay" : "Select a package"}
               </A11yDialogTitle>
+              <A11yDialogDescription id={dialogDescriptionId} className="sr-only">
+                {selectedPlan
+                  ? `${selectedPlan.title} · ${selectedPlan.subtitle}`
+                  : "Select one-time or subscription packages, then complete payment in this popup."}
+              </A11yDialogDescription>
               <h2 className="text-lg font-semibold leading-none tracking-tight">
                 {selectedPlan && clientSecret ? "Confirm and pay" : "Select a package"}
               </h2>

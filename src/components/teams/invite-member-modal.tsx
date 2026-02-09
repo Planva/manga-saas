@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useServerAction } from "zsa-react";
@@ -85,6 +85,9 @@ export function InviteMemberModal({ teamId, trigger, onInviteSuccess }: InviteMe
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Invite Team Member</DialogTitle>
+          <DialogDescription>
+            Invite a teammate by email. They will receive an invitation link to join this team.
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
