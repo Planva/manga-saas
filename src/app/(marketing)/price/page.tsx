@@ -5,6 +5,7 @@ import Link from "next/link";
 import BuyButton from "./_components/buy-button.client";
 import { getSystemSettings } from "@/utils/system-settings";
 import { MobilePriceScrollContainer } from "./_components/mobile-price-scroll-container";
+import { getMarketingPricingPlans } from "@/config/marketing-pricing-plans";
 
 type Tab = "pack" | "subscription";
 
@@ -111,19 +112,9 @@ export default async function Page({
   const enablePacks = settings.enablePacks;
   const enableSubs = settings.enableSubscriptions;
 
-  const packPriceIds = {
-    starter: settings.stripePrices.packStarter,
-    standard: settings.stripePrices.packStandard,
-    bulk: settings.stripePrices.packBulk,
-  };
-
-  const subsPriceIds = {
-    monthly: settings.stripePrices.subMonthly,
-    yearly: settings.stripePrices.subYearly,
-  };
-
-  const hasPackProducts = enablePacks && Object.values(packPriceIds).some(Boolean);
-  const hasSubscriptionProducts = enableSubs && Object.values(subsPriceIds).some(Boolean);
+  const { packs, subscriptions } = getMarketingPricingPlans(settings);
+  const hasPackProducts = enablePacks && packs.length > 0;
+  const hasSubscriptionProducts = enableSubs && subscriptions.length > 0;
 
   let tab: Tab;
   if (hasPackProducts && hasSubscriptionProducts) {
@@ -147,80 +138,43 @@ export default async function Page({
 
       {hasPackProducts && (tab === "pack" || !hasSubscriptionProducts) && (
         <MobilePriceScrollContainer className="md:grid-cols-3">
-          {packPriceIds.starter && (
-            <div className="min-w-[85vw] md:min-w-0 snap-center">
+          {packs.map((plan) => (
+            <div
+              key={plan.priceId}
+              className="min-w-[85vw] md:min-w-0 snap-center"
+              data-highlight={plan.highlight ? "true" : undefined}
+            >
               <Card
-                title="Starter Pack"
-                price="$6.90"
-                subtitle="≈300 translations"
-                kind="pack"
-                priceId={packPriceIds.starter}
+                title={plan.title}
+                price={plan.price}
+                subtitle={plan.subtitle}
+                highlight={plan.highlight}
+                kind={plan.kind}
+                priceId={plan.priceId}
               />
             </div>
-          )}
-          {packPriceIds.standard && (
-            <div className="min-w-[85vw] md:min-w-0 snap-center" data-highlight="true">
-              <Card
-                title="Standard Pack"
-                price="$19.90"
-                subtitle="≈1,000 translations"
-                highlight
-                kind="pack"
-                priceId={packPriceIds.standard}
-              />
-            </div>
-          )}
-          {packPriceIds.bulk && (
-            <div className="min-w-[85vw] md:min-w-0 snap-center">
-              <Card
-                title="Bulk Pack"
-                price="$24.90"
-                subtitle="≈1,200 translations"
-                kind="pack"
-                priceId={packPriceIds.bulk}
-              />
-            </div>
-          )}
-
-          {!Object.values(packPriceIds).some(Boolean) && (
-            <div className="rounded-xl border border-dashed border-border bg-muted/40 p-6 text-sm text-muted-foreground md:col-span-3">
-              No pack products are configured. Add Stripe price IDs to your .env to offer one-time purchases.
-            </div>
-          )}
+          ))}
         </MobilePriceScrollContainer>
       )}
 
       {hasSubscriptionProducts && (tab === "subscription" || !hasPackProducts) && (
         <MobilePriceScrollContainer className="mt-16 md:grid-cols-2">
-          {subsPriceIds.monthly && (
-            <div className="min-w-[85vw] md:min-w-0 snap-center">
+          {subscriptions.map((plan) => (
+            <div
+              key={plan.priceId}
+              className="min-w-[85vw] md:min-w-0 snap-center"
+              data-highlight={plan.highlight ? "true" : undefined}
+            >
               <Card
-                title="Monthly"
-                price="$19.90"
-                subtitle="1,200 credits / month · rollover"
-                kind="subscription"
-                priceId={subsPriceIds.monthly}
+                title={plan.title}
+                price={plan.price}
+                subtitle={plan.subtitle}
+                highlight={plan.highlight}
+                kind={plan.kind}
+                priceId={plan.priceId}
               />
             </div>
-          )}
-          {subsPriceIds.yearly && (
-            <div className="min-w-[85vw] md:min-w-0 snap-center" data-highlight="true">
-              <Card
-                title="Yearly"
-                price="$199.90"
-                subtitle="16,000 credits / year · rollover"
-                highlight
-                kind="subscription"
-                priceId={subsPriceIds.yearly}
-              />
-            </div>
-          )}
-
-          {!Object.values(subsPriceIds).some(Boolean) && (
-            <div className="rounded-xl border border-dashed border-border bg-muted/40 p-6 text-sm text-muted-foreground md:col-span-2">
-              No subscription products are configured. Provide Stripe subscription price IDs in your .env to enable recurring plans.
-            </div>
-          )}
+          ))}
         </MobilePriceScrollContainer>
       )}
 

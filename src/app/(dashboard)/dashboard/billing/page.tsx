@@ -16,17 +16,22 @@ export const revalidate = 0;
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  if (!db) {
+    throw new Error("Database connection is not available");
+  }
+
   const session = await getSessionFromCookie();
   if (!session) redirect("/sign-in");
+  const sp = (await searchParams) ?? {};
 
   const status =
-    typeof searchParams?.status === "string" ? searchParams.status : undefined;
+    typeof sp.status === "string" ? sp.status : undefined;
   const kind =
-    typeof searchParams?.kind === "string" ? searchParams.kind : undefined;
+    typeof sp.kind === "string" ? sp.kind : undefined;
   const checkoutSessionId =
-    typeof searchParams?.session_id === "string" ? searchParams.session_id : undefined;
+    typeof sp.session_id === "string" ? sp.session_id : undefined;
 
   if (status === "success" || status === "cancel") {
     await logUserEvent({
