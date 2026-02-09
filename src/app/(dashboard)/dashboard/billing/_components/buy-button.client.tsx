@@ -4,6 +4,7 @@
 import * as React from "react";
 import { createCheckoutSessionUrl } from "@/app/(marketing)/price/server-actions";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export default function BuyButton({
   kind,
@@ -27,8 +28,19 @@ export default function BuyButton({
       onClick={async () => {
         try {
           setLoading(true);
-          const url = await createCheckoutSessionUrl({ kind, priceId });
-          if (url) window.location.href = url;
+          const result = await createCheckoutSessionUrl({ kind, priceId });
+          if ("errorMessage" in result) {
+            toast.error(result.errorMessage);
+            console.error("[checkout] initialization failed", {
+              kind,
+              priceId,
+              message: result.errorMessage,
+            });
+            return;
+          }
+
+          if (result.url) window.location.href = result.url;
+          else toast.error("Failed to start checkout.");
         } finally {
           setLoading(false);
         }

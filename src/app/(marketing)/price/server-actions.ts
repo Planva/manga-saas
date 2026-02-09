@@ -150,39 +150,61 @@ export async function createCheckoutSessionUrl({
 }: {
   kind: "pack" | "subscription";
   priceId: string;
-}): Promise<string> {
-  const settings = await getSystemSettings();
+}): Promise<{ url: string } | { errorMessage: string }> {
+  try {
+    if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+      return { errorMessage: "Payment service is not configured (missing STRIPE_SECRET_KEY)." };
+    }
 
-  if (!isProductEnabled(kind, priceId, settings)) {
-    throw new Error("This product is currently disabled.");
+    const settings = await getSystemSettings();
+
+    if (!isProductEnabled(kind, priceId, settings)) {
+      return { errorMessage: "This product is currently disabled." };
+    }
+
+    const session = await getSessionFromCookie();
+    const siteUrl = getSiteUrl();
+
+    if (!session?.user?.email) {
+      return { url: `${siteUrl}/sign-in?redirect=/dashboard/billing` };
+    }
+
+    const stripe = await getStripe();
+    const checkoutSession = await stripe.checkout.sessions.create({
+      mode: kind === "subscription" ? "subscription" : "payment",
+      customer_email: session.user.email!,
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${siteUrl}/dashboard/billing?status=success&kind=${kind}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl}/dashboard/billing?status=cancel&kind=${kind}`,
+      allow_promotion_codes: true,
+      metadata: { userId: String(session.user.id), kind, priceId },
+    });
+
+    await logUserEvent({
+      eventType: "checkout_started",
+      userId: String(session.user.id),
+      email: session.user.email ?? null,
+      metadata: { source: "marketing", kind, priceId, sessionId: checkoutSession.id },
+    }).catch((eventLogError) => {
+      console.error("[checkout] failed to write checkout_started event:", toErrorMessage(eventLogError));
+    });
+
+    if (!checkoutSession.url) {
+      return { errorMessage: "Failed to create checkout session URL." };
+    }
+
+    return { url: checkoutSession.url };
+  } catch (error) {
+    const userMessage = toPopupInitErrorMessage(error, priceId);
+    console.error(
+      "[checkout] create checkout session url failed:",
+      `kind=${kind}`,
+      `priceId=${priceId}`,
+      toErrorMessage(error),
+      `userMessage=${userMessage}`,
+    );
+    return { errorMessage: userMessage };
   }
-
-  const session = await getSessionFromCookie();
-  const siteUrl = getSiteUrl();
-
-  if (!session?.user?.email) {
-    return `${siteUrl}/sign-in?redirect=/dashboard/billing`;
-  }
-
-  const stripe = await getStripe();
-  const checkoutSession = await stripe.checkout.sessions.create({
-    mode: kind === "subscription" ? "subscription" : "payment",
-    customer_email: session.user.email!,
-    line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${siteUrl}/dashboard/billing?status=success&kind=${kind}&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${siteUrl}/dashboard/billing?status=cancel&kind=${kind}`,
-    allow_promotion_codes: true,
-    metadata: { userId: String(session.user.id), kind, priceId },
-  });
-
-  await logUserEvent({
-    eventType: "checkout_started",
-    userId: String(session.user.id),
-    email: session.user.email ?? null,
-    metadata: { source: "marketing", kind, priceId, sessionId: checkoutSession.id },
-  });
-
-  return checkoutSession.url!;
 }
 
 type PopupPaymentFlow = "payment_intent" | "subscription";
